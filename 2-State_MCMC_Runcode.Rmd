@@ -1,0 +1,1283 @@
+---
+title: "2-State_MCMC_Runcode"
+author: "Rebecca Perez"
+date: "2024-07-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(root.dir = "/Users/FEB_ST131/Updated ST131 Code")
+library(dplyr)
+library(rstan)
+```
+
+##Load and format data for all participants in the study (n = 124)
+```{r, echo = FALSE}
+##subset data to relevant columns 
+load("Apr18_datafinal.Rdata")
+
+d.short <- subset(MVdf, select = c(subject_code,family_code, date_collected.y, timepoint, overall, PERS2FIN, CORES2))
+
+colnames(d.short) <- c("subject_code", "family_code", "date_collected", "timepoint", "ST131POS", "PERS2FIN", "CORES2")
+
+##remove missing values 
+d.short <- d.short[!is.na(d.short$date_collected),]
+d.short <- d.short[!is.na(d.short$subject_code),]
+d.short <- d.short[!is.na(d.short$ST131POS),]
+
+##format dates 
+d.short$date_lubridate <- as.Date(d.short$date_collected)
+
+d.working <- d.short
+
+##format numeric values 
+d.working$PERS2 <- as.numeric(d.working$PERS2FIN)
+d.working$CORES2 <- as.numeric(d.working$CORES2)
+d.working$timepoint <- as.numeric(d.working$timepoint)
+
+##subset by timepoint, create one row for each subject 
+
+t1df <- subset(d.working, timepoint == 1)
+t1df$T1 <- t1df$date_collected
+t1df$T1ST131 <- t1df$ST131POS
+
+t2df <- subset(d.short, timepoint == 2)
+t2df$T2 <- t2df$date_collected
+t2df$T2ST131 <- t2df$ST131POS
+
+
+df<- full_join(t1df, t2df[,c(1,ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t3df <- subset(d.short, timepoint == 3)
+t3df$T3 <- t3df$date_collected
+t3df$T3ST131 <- t3df$ST131POS
+
+df<- full_join(df, t3df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t4df <- subset(d.short, timepoint == 4)
+t4df$T4 <- t4df$date_collected
+t4df$T4ST131 <- t4df$ST131POS
+
+df<- full_join(df, t4df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t5df <- subset(d.short, timepoint == 5)
+t5df$T5 <- t5df$date_collected
+t5df$T5ST131 <- t5df$ST131POS
+
+df<- full_join(df, t5df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t6df <- subset(d.short, timepoint == 6)
+t6df$T6 <- t6df$date_collected
+t6df$T6ST131 <- t6df$ST131POS
+
+df<- full_join(df, t6df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t7df <- subset(d.short, timepoint == 7)
+t7df$T7 <- t7df$date_collected
+t7df$T7ST131 <- t7df$ST131POS
+
+df<- full_join(df, t7df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t8df <- subset(d.short, timepoint == 8)
+t8df$T8 <- t8df$date_collected
+t8df$T8ST131 <- t8df$ST131POS
+
+df<- full_join(df, t8df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t9df <- subset(d.short, timepoint == 9)
+t9df$T9 <- t9df$date_collected
+t9df$T9ST131 <- t9df$ST131POS
+
+df<- full_join(df, t9df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t10df <- subset(d.short, timepoint == 10)
+t10df$T10 <- t10df$date_collected
+t10df$T10ST131 <- t10df$ST131POS
+
+df<- full_join(df, t10df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t11df <- subset(d.short, timepoint == 11)
+t11df$T11 <- t11df$date_collected
+t11df$T11ST131 <- t11df$ST131POS
+
+df<- full_join(df, t11df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t12df <- subset(d.short, timepoint == 12)
+t12df$T12 <- t12df$date_collected
+t12df$T12ST131 <- t12df$ST131POS
+
+df<- full_join(df, t12df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+
+##check for participants with no T1, add into df 
+
+missedsubs <- as.vector(df$subject_code[is.na(df$T1)])
+
+allms <- d.short[1,]
+for(m in missedsubs){
+  
+  missedind <- d.short[d.short$subject_code == m,]
+  missedind <- missedind[1,]
+  allms <- rbind(allms, missedind)
+}
+
+##remove binding row
+allms <- allms[-1,]
+
+if(nrow(allms) > 0){
+n <- nrow(df)
+nminus <- n - length(missedsubs) + 1
+df[nminus:n, 2:7] <- allms[,2:7]
+
+}
+##Create sequence of dates participants were in the study 
+date.seq <- seq(from=min(d.short$date_lubridate), to = max(d.short$date_lubridate), by = 1)
+
+
+###Create a vector of participant ids 
+id.vector <- as.character((d.short$subject_code))
+id.vector <- id.vector[!duplicated(id.vector)]
+
+
+##Create an individual-level matrix for each day a participant is in the trial 
+
+particip.matrix <- matrix(nrow = nrow(df), ncol = length(date.seq), data =0)
+
+for (i in 1:length(id.vector)){
+  particip_rows <- which(d.short$subject_code==id.vector[i])
+  entry.date <- min(d.short$date_lubridate[particip_rows])
+  leave.date <- max(d.short$date_lubridate[particip_rows])
+  entry_num <- match(as.Date(entry.date), date.seq)
+  leave_num <- match(as.Date(leave.date), date.seq)
+  particip.matrix[i, c(entry_num:leave_num)]<- 1
+}
+
+sample.matrix <- matrix(nrow=nrow(df), ncol= length(date.seq), data = 0)
+
+for (j in 1:nrow(d.short)){
+  particip.num <- match(d.short$subject_code[j], id.vector)
+  date.num <- match(d.short$date_lubridate[j], date.seq)
+  sample.matrix[particip.num, date.num]<-1
+}
+
+
+##Create outcome matrix -- indicates negatives (not carrying ST131) or positives (carrying ST131) by sample   
+
+outcome.matrix <- matrix(nrow=nrow(df), ncol = length(date.seq), data =0)
+
+for(k in 1:nrow(d.short)){
+  particip.num <- match(d.short$subject_code[k], id.vector)
+  date.num <- match(d.short$date_lubridate[k], date.seq)
+  outcome <- ifelse(as.numeric(d.short$ST131POS[k])>0,1,0)
+  outcome.matrix[particip.num, date.num] <- outcome
+}
+
+
+###Create interval matrix -- all days participants are in the trial 
+
+interval.matrix <- matrix(nrow = nrow(df), ncol = length(date.seq), data = "")
+
+for(k in 1:nrow(d.short)){
+  particip.num <- match(d.short$subject_code[k], id.vector)
+  interval.matrix[particip.num, which(sample.matrix[particip.num,]==1)]<- seq(1, by = 1, len=length(which(sample.matrix[particip.num,]==1)+1))
+  
+  interval.matrix[particip.num, head(which(sample.matrix[particip.num,]==1)+1,-1)]<- seq(2, by =1, len =(length(which(sample.matrix[particip.num,]==1))-1))
+  particip_rows <- which(d.short$subject_code==id.vector[particip.num])
+  entry.date <- min(d.short$date_lubridate[particip_rows])
+  leave.date <- max(d.short$date_lubridate[particip_rows])
+  entry_num <- match(as.Date(entry.date), date.seq)
+  leave_num <- match(as.Date(leave.date), date.seq)
+  
+  if(interval.matrix[particip.num, 1]== "") {
+    interval.matrix[particip.num, 1:(entry_num-1)]<- rep(0, length(1:(entry_num-1))) 
+  }
+  
+  if(leave_num<length(date.seq)) {
+    interval.matrix[particip.num, (leave_num+1):length(date.seq)]<- rep(0, length((leave_num+1):length(date.seq)))
+  }
+  notMissings <- nzchar(interval.matrix[particip.num,])
+  
+  interval.matrix[particip.num,] <- interval.matrix[particip.num,][notMissings][cumsum(notMissings)]
+}
+
+
+interval.matrix.numeric <- mapply(interval.matrix, FUN = as.numeric)
+interval.matrix <- matrix(data=interval.matrix.numeric, nrow = nrow(df), ncol = length(date.seq))
+
+
+##Create vector of intervals between sampling timepoints (days) for each participant at each timepoint 1-10 
+
+Q <- nrow(df)
+
+.delta_T1<-NULL
+for (i in 1:Q) {
+  .delta_T1[i]<- sum(interval.matrix[i, ]==2)
+}
+delta_T1<- .delta_T1[.delta_T1 !=0]
+
+.delta_T2<-NULL
+for (i in 1:Q) {
+  .delta_T2[i]<- sum(interval.matrix[i, ]==3)
+}
+delta_T2<- .delta_T2[.delta_T2 !=0]
+
+.delta_T3<-NULL
+for (i in 1:Q) {
+  .delta_T3[i]<- sum(interval.matrix[i, ]==4)
+}
+delta_T3<- .delta_T3[.delta_T3 !=0]
+
+.delta_T4<-NULL
+for (i in 1:Q) {
+  .delta_T4[i]<- sum(interval.matrix[i, ]==5)
+}
+delta_T4<- .delta_T4[.delta_T4 !=0]
+
+.delta_T5<-NULL
+for (i in 1:Q) {
+  .delta_T5[i]<- sum(interval.matrix[i, ]==6)
+}
+delta_T5<- .delta_T5[.delta_T5 !=0]
+
+.delta_T6<-NULL
+for (i in 1:Q) {
+  .delta_T6[i]<- sum(interval.matrix[i, ]==7)
+}
+delta_T6<- .delta_T6[.delta_T6 !=0]
+
+.delta_T7<-NULL
+for (i in 1:Q) {
+  .delta_T7[i]<- sum(interval.matrix[i, ]==8)
+}
+delta_T7<- .delta_T7[.delta_T7 !=0]
+
+.delta_T8<-NULL
+for (i in 1:Q) {
+  .delta_T8[i]<- sum(interval.matrix[i, ]==9)
+}
+delta_T8<- .delta_T8[.delta_T8 !=0]
+
+.delta_T9<-NULL
+for (i in 1:Q) {
+  .delta_T9[i]<- sum(interval.matrix[i, ]==10)
+}
+delta_T9<- .delta_T9[.delta_T9 !=0]
+
+.delta_T10<-NULL
+for (i in 1:Q) {
+  .delta_T10[i]<- sum(interval.matrix[i, ]==11)
+}
+delta_T10<- .delta_T10[.delta_T10 !=0]
+
+
+##Create sums of participants present at each timepoint 1-10 
+
+N1<- Q - sum(.delta_T1 ==0) 
+N2<- Q- sum( .delta_T2==0)
+N3<- Q- sum( .delta_T3==0)
+N4<- Q- sum( .delta_T4==0)
+N5<- Q- sum( .delta_T5==0)
+N6<- Q- sum( .delta_T6==0)
+N7<- Q- sum( .delta_T7==0)
+N8<- Q- sum( .delta_T8==0)
+N9<- Q- sum( .delta_T9==0)
+N10<-Q- sum( .delta_T10==0)
+
+
+####create vectors of outcomes 
+outcome<-NULL
+for (k in 1:nrow(df)) {
+  outcome[[k]]<-outcome.matrix[k,][which(sample.matrix[k,]==1)]
+}
+outcome<-lapply (outcome,'length<-', max(lengths(outcome)))
+outcome.matrix<-t(do.call(cbind,outcome))
+
+y1<- na.omit(outcome.matrix[,1:2])+1 #state 2= carrying ST131, state 1= not carrying ST131
+y2<- na.omit(outcome.matrix[,2:3])+1
+y3<- na.omit(outcome.matrix[,3:4])+1
+y4<- na.omit(outcome.matrix[,4:5])+1
+y5<- na.omit(outcome.matrix[,5:6])+1
+y6<- na.omit(outcome.matrix[,6:7])+1
+y7<- na.omit(outcome.matrix[,7:8])+1
+y8<- na.omit(outcome.matrix[,8:9])+1
+y9<- na.omit(outcome.matrix[,9:10])+1
+y10<- na.omit(outcome.matrix[,10:11])+1
+
+
+##Covariate vectors for indivs present at each timepoint 
+X <- with(df, cbind(rep(1,Q))) 
+X1 <- cbind(X[-(c(as.numeric(which(.delta_T1==0)))),])
+X2<- cbind(X[-(c(as.numeric(which(.delta_T2==0)))),])
+X3 <- cbind(X[-(c(as.numeric(which(.delta_T3==0)))),])
+X4 <- cbind(X[-(c(as.numeric(which(.delta_T4==0)))),])
+X5 <- cbind(X[-(c(as.numeric(which(.delta_T5==0)))),])
+X6 <- cbind(X[-(c(as.numeric(which(.delta_T6==0)))),])
+X7 <- cbind(X[-(c(as.numeric(which(.delta_T7==0)))),])
+X8 <- cbind(X[-(c(as.numeric(which(.delta_T8==0)))),])
+X9<- cbind(X[-(c(as.numeric(which(.delta_T9==0)))),])
+X10<- cbind(X[-(c(as.numeric(which(.delta_T10==0)))),])
+
+D <- ncol(X) ##number of covariates 
+K <- as.integer(2) #number of states 
+
+#number of samples between time points
+T1<- 2 
+T2<- 2
+T3<- 2
+T4<- 2
+T5<- 2
+T6<- 2
+T7<- 2
+T8<- 2
+T9<- 2
+T10<- 2
+
+
+##compile data 
+TS.data<-list(K = 2, D = D,
+              delta_T1 = delta_T1, delta_T2 = delta_T2, delta_T3 = delta_T3, delta_T4 = delta_T4, delta_T5 = delta_T5, delta_T6 = delta_T6,
+              delta_T7 = delta_T7, delta_T8 = delta_T8, delta_T9 = delta_T9, delta_T10 = delta_T10,
+              y1 = y1, y2 = y2, y3 = y3, y4 = y4, y5 = y5, y6 = y6, y7 = y7, y8 = y8, y9 = y9, y10 = y10,
+              X1=X1,X2 = X2,X3 = X3, X4 = X4, X5 = X5, X6 = X6, X7 = X7, X8 = X8, X9=X9, X10 = X10,
+              N1 = N1,N2 = N2, N3 = N3, N4 = N4, N5 = N5, N6 = N6, N7 = N7, N8 = N8, N9 = N9, N10 = N10,
+              T1 = T1, T2 = T2, T3 = T3, T4=T4, T5=T5, T6=T6, T7=T7, T8 = T8, T9 = T9, T10 = T10)
+
+##run stan model and save 
+TS2.indiv.model1 <- rstan::stan(file="No Covariates.stan", data=TS.data, iter=20000, chains = 3, cores=6, control=list(adapt_delta=0.95))
+
+save(TS2.indiv.model1, file = 'TS2.indiv.model1.Rdata')
+
+
+```
+
+
+##Run two-state MCMC for subgroup: persistent carriers 
+```{r, echo = FALSE}
+##subset to persistent carriers 
+
+d.short <- subset(MVdf, select = c(subject_code,family_code, date_collected.y, timepoint, overall, PERS2FIN, CORES2))
+
+colnames(d.short) <- c("subject_code", "family_code", "date_collected", "timepoint", "ST131POS", "PERS2FIN", "CORES2")
+
+d.short <- d.short[!is.na(d.short$date_collected),]
+d.short$date_lubridate <- as.Date(d.short$date_collected)
+
+d.short <- d.short[!is.na(d.short$subject_code),]
+d.short <- d.short[!is.na(d.short$ST131POS),]
+d.short <- d.short[d.short$PERS2FIN == 1,]
+
+d.working <- d.short
+
+##format numeric values 
+d.working$PERS2 <- as.numeric(d.working$PERS2FIN)
+d.working$CORES2 <- as.numeric(d.working$CORES2)
+d.working$timepoint <- as.numeric(d.working$timepoint)
+
+##subset by timepoint, create one row for each subject 
+
+t1df <- subset(d.working, timepoint == 1)
+t1df$T1 <- t1df$date_collected
+t1df$T1ST131 <- t1df$ST131POS
+
+t2df <- subset(d.short, timepoint == 2)
+t2df$T2 <- t2df$date_collected
+t2df$T2ST131 <- t2df$ST131POS
+
+
+df<- full_join(t1df, t2df[,c(1,ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t3df <- subset(d.short, timepoint == 3)
+t3df$T3 <- t3df$date_collected
+t3df$T3ST131 <- t3df$ST131POS
+
+df<- full_join(df, t3df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t4df <- subset(d.short, timepoint == 4)
+t4df$T4 <- t4df$date_collected
+t4df$T4ST131 <- t4df$ST131POS
+
+df<- full_join(df, t4df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t5df <- subset(d.short, timepoint == 5)
+t5df$T5 <- t5df$date_collected
+t5df$T5ST131 <- t5df$ST131POS
+
+df<- full_join(df, t5df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t6df <- subset(d.short, timepoint == 6)
+t6df$T6 <- t6df$date_collected
+t6df$T6ST131 <- t6df$ST131POS
+
+df<- full_join(df, t6df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t7df <- subset(d.short, timepoint == 7)
+t7df$T7 <- t7df$date_collected
+t7df$T7ST131 <- t7df$ST131POS
+
+df<- full_join(df, t7df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t8df <- subset(d.short, timepoint == 8)
+t8df$T8 <- t8df$date_collected
+t8df$T8ST131 <- t8df$ST131POS
+
+df<- full_join(df, t8df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t9df <- subset(d.short, timepoint == 9)
+t9df$T9 <- t9df$date_collected
+t9df$T9ST131 <- t9df$ST131POS
+
+df<- full_join(df, t9df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t10df <- subset(d.short, timepoint == 10)
+t10df$T10 <- t10df$date_collected
+t10df$T10ST131 <- t10df$ST131POS
+
+df<- full_join(df, t10df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t11df <- subset(d.short, timepoint == 11)
+t11df$T11 <- t11df$date_collected
+t11df$T11ST131 <- t11df$ST131POS
+
+df<- full_join(df, t11df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t12df <- subset(d.short, timepoint == 12)
+t12df$T12 <- t12df$date_collected
+t12df$T12ST131 <- t12df$ST131POS
+
+df<- full_join(df, t12df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+
+##check for participants with no T1, add into df 
+
+missedsubs <- as.vector(df$subject_code[is.na(df$T1)])
+
+allms <- d.short[1,]
+for(m in missedsubs){
+  
+  missedind <- d.short[d.short$subject_code == m,]
+  missedind <- missedind[1,]
+  allms <- rbind(allms, missedind)
+}
+
+##remove binding row
+allms <- allms[-1,]
+
+if(nrow(allms) > 0){
+n <- nrow(df)
+nminus <- n - length(missedsubs) + 1
+
+df[nminus:n, 2:7] <- allms[,2:7]
+
+}
+
+##Create sequence of dates participants were in the study 
+date.seq <- seq(from=min(d.short$date_lubridate), to = max(d.short$date_lubridate), by = 1)
+
+
+###Create a vector of participant ids 
+id.vector <- as.character((d.short$subject_code))
+id.vector <- id.vector[!duplicated(id.vector)]
+
+
+##Create an individual-level matrix for each day a participant is in the trial 
+
+particip.matrix <- matrix(nrow = nrow(df), ncol = length(date.seq), data =0)
+
+for (i in 1:length(id.vector)){
+  particip_rows <- which(d.short$subject_code==id.vector[i])
+  entry.date <- min(d.short$date_lubridate[particip_rows])
+  leave.date <- max(d.short$date_lubridate[particip_rows])
+  entry_num <- match(as.Date(entry.date), date.seq)
+  leave_num <- match(as.Date(leave.date), date.seq)
+  particip.matrix[i, c(entry_num:leave_num)]<- 1
+}
+
+sample.matrix <- matrix(nrow=nrow(df), ncol= length(date.seq), data = 0)
+
+for (j in 1:nrow(d.short)){
+  particip.num <- match(d.short$subject_code[j], id.vector)
+  date.num <- match(d.short$date_lubridate[j], date.seq)
+  sample.matrix[particip.num, date.num]<-1
+}
+
+
+##Create outcome matrix -- indicates negatives (not carrying ST131) or positives (carrying ST131) by sample   
+
+outcome.matrix <- matrix(nrow=nrow(df), ncol = length(date.seq), data =0)
+
+for(k in 1:nrow(d.short)){
+  particip.num <- match(d.short$subject_code[k], id.vector)
+  date.num <- match(d.short$date_lubridate[k], date.seq)
+  outcome <- ifelse(as.numeric(d.short$ST131POS[k])>0,1,0)
+  outcome.matrix[particip.num, date.num] <- outcome
+}
+
+
+###Create interval matrix -- all days participants are in the trial 
+
+interval.matrix <- matrix(nrow = nrow(df), ncol = length(date.seq), data = "")
+
+for(k in 1:nrow(d.short)){
+  particip.num <- match(d.short$subject_code[k], id.vector)
+  interval.matrix[particip.num, which(sample.matrix[particip.num,]==1)]<- seq(1, by = 1, len=length(which(sample.matrix[particip.num,]==1)+1))
+  
+  interval.matrix[particip.num, head(which(sample.matrix[particip.num,]==1)+1,-1)]<- seq(2, by =1, len =(length(which(sample.matrix[particip.num,]==1))-1))
+  particip_rows <- which(d.short$subject_code==id.vector[particip.num])
+  entry.date <- min(d.short$date_lubridate[particip_rows])
+  leave.date <- max(d.short$date_lubridate[particip_rows])
+  entry_num <- match(as.Date(entry.date), date.seq)
+  leave_num <- match(as.Date(leave.date), date.seq)
+  
+  if(interval.matrix[particip.num, 1]== "") {
+    interval.matrix[particip.num, 1:(entry_num-1)]<- rep(0, length(1:(entry_num-1))) 
+  }
+  
+  if(leave_num<length(date.seq)) {
+    interval.matrix[particip.num, (leave_num+1):length(date.seq)]<- rep(0, length((leave_num+1):length(date.seq)))
+  }
+  notMissings <- nzchar(interval.matrix[particip.num,])
+  
+  interval.matrix[particip.num,] <- interval.matrix[particip.num,][notMissings][cumsum(notMissings)]
+}
+
+
+interval.matrix.numeric <- mapply(interval.matrix, FUN = as.numeric)
+interval.matrix <- matrix(data=interval.matrix.numeric, nrow = nrow(df), ncol = length(date.seq))
+
+
+##Create vector of intervals between sampling timepoints (days) for each participant at each timepoint 1-5
+
+##including all timepoints where more than one individual to the next timepoint 
+
+Q <- nrow(df)
+
+.delta_T1<-NULL
+for (i in 1:Q) {
+  .delta_T1[i]<- sum(interval.matrix[i, ]==2)
+}
+delta_T1<- .delta_T1[.delta_T1 !=0]
+
+.delta_T2<-NULL
+for (i in 1:Q) {
+  .delta_T2[i]<- sum(interval.matrix[i, ]==3)
+}
+delta_T2<- .delta_T2[.delta_T2 !=0]
+
+.delta_T3<-NULL
+for (i in 1:Q) {
+  .delta_T3[i]<- sum(interval.matrix[i, ]==4)
+}
+delta_T3<- .delta_T3[.delta_T3 !=0]
+
+.delta_T4<-NULL
+for (i in 1:Q) {
+  .delta_T4[i]<- sum(interval.matrix[i, ]==5)
+}
+delta_T4<- .delta_T4[.delta_T4 !=0]
+
+.delta_T5<-NULL
+for (i in 1:Q) {
+  .delta_T5[i]<- sum(interval.matrix[i, ]==6)
+}
+delta_T5<- .delta_T5[.delta_T5 !=0]
+
+
+##Create sums of participants present at each timepoint 1-10 
+
+N1<- Q - sum(.delta_T1 ==0) 
+N2<- Q- sum( .delta_T2==0)
+N3<- Q- sum( .delta_T3==0)
+N4<- Q- sum( .delta_T4==0)
+N5<- Q- sum( .delta_T5==0)
+
+
+
+####create vectors of outcomes 
+outcome<-NULL
+for (k in 1:nrow(df)) {
+  outcome[[k]]<-outcome.matrix[k,][which(sample.matrix[k,]==1)]
+}
+outcome<-lapply (outcome,'length<-', max(lengths(outcome)))
+outcome.matrix<-t(do.call(cbind,outcome))
+
+y1<- na.omit(outcome.matrix[,1:2])+1 #state 2= carrying ST131, state 1= not carrying ST131
+y2<- na.omit(outcome.matrix[,2:3])+1
+y3<- na.omit(outcome.matrix[,3:4])+1
+y4<- na.omit(outcome.matrix[,4:5])+1
+y5<- na.omit(outcome.matrix[,5:6])+1
+
+
+
+##Covariate vectors for indivs present at each timepoint 
+X <- with(df, cbind(rep(1,Q))) 
+X1 <- cbind(X[-(c(as.numeric(which(.delta_T1==0)))),])
+X2<- cbind(X[-(c(as.numeric(which(.delta_T2==0)))),])
+X3 <- cbind(X[-(c(as.numeric(which(.delta_T3==0)))),])
+X4 <- cbind(X[-(c(as.numeric(which(.delta_T4==0)))),])
+X5 <- cbind(X[-(c(as.numeric(which(.delta_T5==0)))),])
+
+D <- ncol(X) ##number of covariates 
+K <- as.integer(2) #number of states 
+
+#number of samples between time points
+T1<- 2 
+T2<- 2
+T3<- 2
+T4<- 2
+T5<- 2
+
+
+
+##compile data 
+
+TS.dataPERS2<-list(K = 2, D = D,
+                  delta_T1 = delta_T1, delta_T2 = delta_T2, delta_T3 = delta_T3, delta_T4 = delta_T4, delta_T5 = delta_T5, 
+                  y1 = y1, y2 = y2, y3 = y3, y4 = y4, y5 = y5, X1=X1,X2 = X2,X3 = X3, X4 = X4, X5 = X5,
+                  N1 = N1,N2 = N2, N3 = N3, N4 = N4, N5 = N5,
+                  T1 = T1, T2 = T2, T3 = T3, T4=T4, T5=T5)
+
+##Run model and save 
+
+PERS2.indiv.model1 <- rstan::stan(file="NoCov PERS.stan", data=TS.dataPERS2, iter=20000, chains = 3, cores=6, control=list(adapt_delta=0.95))
+
+save(PERS2.indiv.model1, file = 'PERS2.indiv.model1.Rdata')
+
+```
+
+
+##Run two-state MCMC for subgroup: coresidents of persistent carriers 
+
+```{r, echo=FALSE}
+d.short <- subset(MVdf, select = c(subject_code,family_code, date_collected.y, timepoint, overall, PERS2FIN, CORES2))
+
+colnames(d.short) <- c("subject_code", "family_code", "date_collected", "timepoint", "ST131POS", "PERS2FIN", "CORES2")
+
+#remove blank dates
+d.short <- d.short[!is.na(d.short$date_collected),]
+d.short <- d.short[!is.na(d.short$subject_code),]
+d.short <- d.short[!is.na(d.short$ST131POS),]
+
+#alter date format
+d.short$date_lubridate <- as.Date(d.short$date_collected)
+
+##subset to only coresidents of persistent carriers 
+d.short <- d.short[d.short$CORES2 == 1,]
+
+d.working <- d.short
+d.working$timepoint <- as.numeric(d.working$timepoint)
+
+##subset by timepoint, create one row for each subject 
+
+t1df <- subset(d.working, timepoint == 1)
+t1df$T1 <- t1df$date_collected
+t1df$T1ST131 <- t1df$ST131POS
+
+t2df <- subset(d.short, timepoint == 2)
+t2df$T2 <- t2df$date_collected
+t2df$T2ST131 <- t2df$ST131POS
+
+
+df<- full_join(t1df, t2df[,c(1,ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t3df <- subset(d.short, timepoint == 3)
+t3df$T3 <- t3df$date_collected
+t3df$T3ST131 <- t3df$ST131POS
+
+df<- full_join(df, t3df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t4df <- subset(d.short, timepoint == 4)
+t4df$T4 <- t4df$date_collected
+t4df$T4ST131 <- t4df$ST131POS
+
+df<- full_join(df, t4df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t5df <- subset(d.short, timepoint == 5)
+t5df$T5 <- t5df$date_collected
+t5df$T5ST131 <- t5df$ST131POS
+
+df<- full_join(df, t5df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t6df <- subset(d.short, timepoint == 6)
+t6df$T6 <- t6df$date_collected
+t6df$T6ST131 <- t6df$ST131POS
+
+df<- full_join(df, t6df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t7df <- subset(d.short, timepoint == 7)
+t7df$T7 <- t7df$date_collected
+t7df$T7ST131 <- t7df$ST131POS
+
+df<- full_join(df, t7df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t8df <- subset(d.short, timepoint == 8)
+t8df$T8 <- t8df$date_collected
+t8df$T8ST131 <- t8df$ST131POS
+
+df<- full_join(df, t8df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t9df <- subset(d.short, timepoint == 9)
+t9df$T9 <- t9df$date_collected
+t9df$T9ST131 <- t9df$ST131POS
+
+df<- full_join(df, t9df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t10df <- subset(d.short, timepoint == 10)
+t10df$T10 <- t10df$date_collected
+t10df$T10ST131 <- t10df$ST131POS
+
+df<- full_join(df, t10df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t11df <- subset(d.short, timepoint == 11)
+t11df$T11 <- t11df$date_collected
+t11df$T11ST131 <- t11df$ST131POS
+
+df<- full_join(df, t11df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t12df <- subset(d.short, timepoint == 12)
+t12df$T12 <- t12df$date_collected
+t12df$T12ST131 <- t12df$ST131POS
+
+df<- full_join(df, t12df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+
+##check for participants with no T1, add into df 
+
+missedsubs <- as.vector(df$subject_code[is.na(df$T1)])
+
+allms <- d.short[1,]
+for(m in missedsubs){
+  
+  missedind <- d.short[d.short$subject_code == m,]
+  missedind <- missedind[1,]
+  allms <- rbind(allms, missedind)
+}
+
+##remove binding row
+allms <- allms[-1,]
+
+if(nrow(allms) > 0){
+n <- nrow(df)
+nminus <- n - length(missedsubs) + 1
+
+df[nminus:n, 2:7] <- allms[,2:7]
+
+}
+
+##Create sequence of dates participants were in the study 
+date.seq <- seq(from=min(d.short$date_lubridate), to = max(d.short$date_lubridate), by = 1)
+
+
+###Create a vector of participant ids 
+id.vector <- as.character((d.short$subject_code))
+id.vector <- id.vector[!duplicated(id.vector)]
+
+
+##Create an individual-level matrix for each day a participant is in the trial 
+
+particip.matrix <- matrix(nrow = nrow(df), ncol = length(date.seq), data =0)
+
+for (i in 1:length(id.vector)){
+  particip_rows <- which(d.short$subject_code==id.vector[i])
+  entry.date <- min(d.short$date_lubridate[particip_rows])
+  leave.date <- max(d.short$date_lubridate[particip_rows])
+  entry_num <- match(as.Date(entry.date), date.seq)
+  leave_num <- match(as.Date(leave.date), date.seq)
+  particip.matrix[i, c(entry_num:leave_num)]<- 1
+}
+
+sample.matrix <- matrix(nrow=nrow(df), ncol= length(date.seq), data = 0)
+
+for (j in 1:nrow(d.short)){
+  particip.num <- match(d.short$subject_code[j], id.vector)
+  date.num <- match(d.short$date_lubridate[j], date.seq)
+  sample.matrix[particip.num, date.num]<-1
+}
+
+
+##Create outcome matrix -- indicates negatives (not carrying ST131) or positives (carrying ST131) by sample   
+
+outcome.matrix <- matrix(nrow=nrow(df), ncol = length(date.seq), data =0)
+
+for(k in 1:nrow(d.short)){
+  particip.num <- match(d.short$subject_code[k], id.vector)
+  date.num <- match(d.short$date_lubridate[k], date.seq)
+  outcome <- ifelse(as.numeric(d.short$ST131POS[k])>0,1,0)
+  outcome.matrix[particip.num, date.num] <- outcome
+}
+
+
+###Create interval matrix -- all days participants are in the trial 
+
+interval.matrix <- matrix(nrow = nrow(df), ncol = length(date.seq), data = "")
+
+for(k in 1:nrow(d.short)){
+  particip.num <- match(d.short$subject_code[k], id.vector)
+  interval.matrix[particip.num, which(sample.matrix[particip.num,]==1)]<- seq(1, by = 1, len=length(which(sample.matrix[particip.num,]==1)+1))
+  
+  interval.matrix[particip.num, head(which(sample.matrix[particip.num,]==1)+1,-1)]<- seq(2, by =1, len =(length(which(sample.matrix[particip.num,]==1))-1))
+  particip_rows <- which(d.short$subject_code==id.vector[particip.num])
+  entry.date <- min(d.short$date_lubridate[particip_rows])
+  leave.date <- max(d.short$date_lubridate[particip_rows])
+  entry_num <- match(as.Date(entry.date), date.seq)
+  leave_num <- match(as.Date(leave.date), date.seq)
+  
+  if(interval.matrix[particip.num, 1]== "") {
+    interval.matrix[particip.num, 1:(entry_num-1)]<- rep(0, length(1:(entry_num-1))) 
+  }
+  
+  if(leave_num<length(date.seq)) {
+    interval.matrix[particip.num, (leave_num+1):length(date.seq)]<- rep(0, length((leave_num+1):length(date.seq)))
+  }
+  notMissings <- nzchar(interval.matrix[particip.num,])
+  
+  interval.matrix[particip.num,] <- interval.matrix[particip.num,][notMissings][cumsum(notMissings)]
+}
+
+
+interval.matrix.numeric <- mapply(interval.matrix, FUN = as.numeric)
+interval.matrix <- matrix(data=interval.matrix.numeric, nrow = nrow(df), ncol = length(date.seq))
+
+
+##Create vector of intervals between sampling timepoints (days) for each participant at each timepoint 1-5
+
+##including all timepoints where more than one individual to the next timepoint 
+
+Q <- nrow(df)
+
+.delta_T1<-NULL
+for (i in 1:Q) {
+  .delta_T1[i]<- sum(interval.matrix[i, ]==2)
+}
+delta_T1<- .delta_T1[.delta_T1 !=0]
+
+.delta_T2<-NULL
+for (i in 1:Q) {
+  .delta_T2[i]<- sum(interval.matrix[i, ]==3)
+}
+delta_T2<- .delta_T2[.delta_T2 !=0]
+
+.delta_T3<-NULL
+for (i in 1:Q) {
+  .delta_T3[i]<- sum(interval.matrix[i, ]==4)
+}
+delta_T3<- .delta_T3[.delta_T3 !=0]
+
+.delta_T4<-NULL
+for (i in 1:Q) {
+  .delta_T4[i]<- sum(interval.matrix[i, ]==5)
+}
+delta_T4<- .delta_T4[.delta_T4 !=0]
+
+.delta_T5<-NULL
+for (i in 1:Q) {
+  .delta_T5[i]<- sum(interval.matrix[i, ]==6)
+}
+delta_T5<- .delta_T5[.delta_T5 !=0]
+
+
+##Create sums of participants present at each timepoint 1-10 
+
+N1<- Q - sum(.delta_T1 ==0) 
+N2<- Q- sum( .delta_T2==0)
+N3<- Q- sum( .delta_T3==0)
+N4<- Q- sum( .delta_T4==0)
+N5<- Q- sum( .delta_T5==0)
+
+
+####create vectors of outcomes 
+outcome<-NULL
+for (k in 1:nrow(df)) {
+  outcome[[k]]<-outcome.matrix[k,][which(sample.matrix[k,]==1)]
+}
+outcome<-lapply (outcome,'length<-', max(lengths(outcome)))
+outcome.matrix<-t(do.call(cbind,outcome))
+
+y1<- na.omit(outcome.matrix[,1:2])+1 #state 2= carrying ST131, state 1= not carrying ST131
+y2<- na.omit(outcome.matrix[,2:3])+1
+y3<- na.omit(outcome.matrix[,3:4])+1
+y4<- na.omit(outcome.matrix[,4:5])+1
+y5<- na.omit(outcome.matrix[,5:6])+1
+
+
+##Covariate vectors for indivs present at each timepoint 
+X <- with(df, cbind(rep(1,Q))) 
+X1 <- cbind(X[-(c(as.numeric(which(.delta_T1==0)))),])
+X2<- cbind(X[-(c(as.numeric(which(.delta_T2==0)))),])
+X3 <- cbind(X[-(c(as.numeric(which(.delta_T3==0)))),])
+X4 <- cbind(X[-(c(as.numeric(which(.delta_T4==0)))),])
+X5 <- cbind(X[-(c(as.numeric(which(.delta_T5==0)))),])
+
+D <- ncol(X) ##number of covariates 
+K <- as.integer(2) #number of states 
+
+#number of samples between time points
+T1<- 2 
+T2<- 2
+T3<- 2
+T4<- 2
+T5<- 2
+
+###compile data 
+
+TS.dataCORES2<-list(K = 2, D = D,
+                   delta_T1 = delta_T1, delta_T2 = delta_T2, delta_T3 = delta_T3, delta_T4 = delta_T4, delta_T5 = delta_T5, 
+                   y1 = y1, y2 = y2, y3 = y3, y4 = y4, y5 = y5, X1=X1,X2 = X2,X3 = X3, X4 = X4, X5 = X5,
+                   N1 = N1,N2 = N2, N3 = N3, N4 = N4, N5 = N5,
+                   T1 = T1, T2 = T2, T3 = T3, T4=T4, T5=T5)
+
+
+##run stan model and save 
+
+CORES2.indiv.model1 <- rstan::stan(file="NoCov PERS.stan", data=TS.dataCORES2, iter=20000, chains = 3, cores=6, control=list(adapt_delta=0.95))
+
+save(CORES2.indiv.model1, file = 'CORES2.indiv.model1.Rdata')
+
+```
+
+
+##Run two-state MCMC for subgroup: all others 
+
+```{r}
+
+d.short <- subset(MVdf, select = c(subject_code,family_code, date_collected.y, timepoint, overall, PERS2FIN, CORES2))
+
+colnames(d.short) <- c("subject_code", "family_code", "date_collected", "timepoint", "ST131POS", "PERS2FIN", "CORES2")
+
+#remove blank dates
+d.short <- d.short[!is.na(d.short$date_collected),]
+d.short <- d.short[!is.na(d.short$subject_code),]
+d.short <- d.short[!is.na(d.short$ST131POS),]
+
+#alter date format
+d.short$date_lubridate <- as.Date(d.short$date_collected)
+
+d.short <- d.short[d.short$PERS2FIN == 0 & d.short$CORES2 ==0,]
+
+d.working <- d.short
+
+t1df <- subset(d.working, timepoint == 1)
+t1df$T1 <- t1df$date_collected
+t1df$T1ST131 <- t1df$ST131POS
+
+t2df <- subset(d.short, timepoint == 2)
+t2df$T2 <- t2df$date_collected
+t2df$T2ST131 <- t2df$ST131POS
+
+
+df<- full_join(t1df, t2df[,c(1,ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t3df <- subset(d.short, timepoint == 3)
+t3df$T3 <- t3df$date_collected
+t3df$T3ST131 <- t3df$ST131POS
+
+df<- full_join(df, t3df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t4df <- subset(d.short, timepoint == 4)
+t4df$T4 <- t4df$date_collected
+t4df$T4ST131 <- t4df$ST131POS
+
+df<- full_join(df, t4df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t5df <- subset(d.short, timepoint == 5)
+t5df$T5 <- t5df$date_collected
+t5df$T5ST131 <- t5df$ST131POS
+
+df<- full_join(df, t5df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t6df <- subset(d.short, timepoint == 6)
+t6df$T6 <- t6df$date_collected
+t6df$T6ST131 <- t6df$ST131POS
+
+df<- full_join(df, t6df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t7df <- subset(d.short, timepoint == 7)
+t7df$T7 <- t7df$date_collected
+t7df$T7ST131 <- t7df$ST131POS
+
+df<- full_join(df, t7df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t8df <- subset(d.short, timepoint == 8)
+t8df$T8 <- t8df$date_collected
+t8df$T8ST131 <- t8df$ST131POS
+
+df<- full_join(df, t8df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t9df <- subset(d.short, timepoint == 9)
+t9df$T9 <- t9df$date_collected
+t9df$T9ST131 <- t9df$ST131POS
+
+df<- full_join(df, t9df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t10df <- subset(d.short, timepoint == 10)
+t10df$T10 <- t10df$date_collected
+t10df$T10ST131 <- t10df$ST131POS
+
+df<- full_join(df, t10df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t11df <- subset(d.short, timepoint == 11)
+t11df$T11 <- t11df$date_collected
+t11df$T11ST131 <- t11df$ST131POS
+
+df<- full_join(df, t11df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+t12df <- subset(d.short, timepoint == 12)
+t12df$T12 <- t12df$date_collected
+t12df$T12ST131 <- t12df$ST131POS
+
+df<- full_join(df, t12df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
+
+
+##check for participants with no T1, add into df 
+
+missedsubs <- as.vector(df$subject_code[is.na(df$T1)])
+
+allms <- d.short[1,]
+for(m in missedsubs){
+  
+  missedind <- d.short[d.short$subject_code == m,]
+  missedind <- missedind[1,]
+  allms <- rbind(allms, missedind)
+}
+
+##remove binding row
+allms <- allms[-1,]
+
+if(nrow(allms) > 0){
+n <- nrow(df)
+nminus <- n - length(missedsubs) + 1
+df[nminus:n, 2:7] <- allms[,2:7]
+
+}
+##Create sequence of dates participants were in the study 
+date.seq <- seq(from=min(d.short$date_lubridate), to = max(d.short$date_lubridate), by = 1)
+
+
+###Create a vector of participant ids 
+id.vector <- as.character((d.short$subject_code))
+id.vector <- id.vector[!duplicated(id.vector)]
+
+
+##Create an individual-level matrix for each day a participant is in the trial 
+
+particip.matrix <- matrix(nrow = nrow(df), ncol = length(date.seq), data =0)
+
+for (i in 1:length(id.vector)){
+  particip_rows <- which(d.short$subject_code==id.vector[i])
+  entry.date <- min(d.short$date_lubridate[particip_rows])
+  leave.date <- max(d.short$date_lubridate[particip_rows])
+  entry_num <- match(as.Date(entry.date), date.seq)
+  leave_num <- match(as.Date(leave.date), date.seq)
+  particip.matrix[i, c(entry_num:leave_num)]<- 1
+}
+
+sample.matrix <- matrix(nrow=nrow(df), ncol= length(date.seq), data = 0)
+
+for (j in 1:nrow(d.short)){
+  particip.num <- match(d.short$subject_code[j], id.vector)
+  date.num <- match(d.short$date_lubridate[j], date.seq)
+  sample.matrix[particip.num, date.num]<-1
+}
+
+
+##Create outcome matrix -- indicates negatives (not carrying ST131) or positives (carrying ST131) by sample   
+
+outcome.matrix <- matrix(nrow=nrow(df), ncol = length(date.seq), data =0)
+
+for(k in 1:nrow(d.short)){
+  particip.num <- match(d.short$subject_code[k], id.vector)
+  date.num <- match(d.short$date_lubridate[k], date.seq)
+  outcome <- ifelse(as.numeric(d.short$ST131POS[k])>0,1,0)
+  outcome.matrix[particip.num, date.num] <- outcome
+}
+
+
+###Create interval matrix -- all days participants are in the trial 
+
+interval.matrix <- matrix(nrow = nrow(df), ncol = length(date.seq), data = "")
+
+for(k in 1:nrow(d.short)){
+  particip.num <- match(d.short$subject_code[k], id.vector)
+  interval.matrix[particip.num, which(sample.matrix[particip.num,]==1)]<- seq(1, by = 1, len=length(which(sample.matrix[particip.num,]==1)+1))
+  
+  interval.matrix[particip.num, head(which(sample.matrix[particip.num,]==1)+1,-1)]<- seq(2, by =1, len =(length(which(sample.matrix[particip.num,]==1))-1))
+  particip_rows <- which(d.short$subject_code==id.vector[particip.num])
+  entry.date <- min(d.short$date_lubridate[particip_rows])
+  leave.date <- max(d.short$date_lubridate[particip_rows])
+  entry_num <- match(as.Date(entry.date), date.seq)
+  leave_num <- match(as.Date(leave.date), date.seq)
+  
+  if(interval.matrix[particip.num, 1]== "") {
+    interval.matrix[particip.num, 1:(entry_num-1)]<- rep(0, length(1:(entry_num-1))) 
+  }
+  
+  if(leave_num<length(date.seq)) {
+    interval.matrix[particip.num, (leave_num+1):length(date.seq)]<- rep(0, length((leave_num+1):length(date.seq)))
+  }
+  notMissings <- nzchar(interval.matrix[particip.num,])
+  
+  interval.matrix[particip.num,] <- interval.matrix[particip.num,][notMissings][cumsum(notMissings)]
+}
+
+
+interval.matrix.numeric <- mapply(interval.matrix, FUN = as.numeric)
+interval.matrix <- matrix(data=interval.matrix.numeric, nrow = nrow(df), ncol = length(date.seq))
+
+
+##Create vector of intervals between sampling timepoints (days) for each participant at each timepoint 1-10 
+
+Q <- nrow(df)
+
+.delta_T1<-NULL
+for (i in 1:Q) {
+  .delta_T1[i]<- sum(interval.matrix[i, ]==2)
+}
+delta_T1<- .delta_T1[.delta_T1 !=0]
+
+.delta_T2<-NULL
+for (i in 1:Q) {
+  .delta_T2[i]<- sum(interval.matrix[i, ]==3)
+}
+delta_T2<- .delta_T2[.delta_T2 !=0]
+
+.delta_T3<-NULL
+for (i in 1:Q) {
+  .delta_T3[i]<- sum(interval.matrix[i, ]==4)
+}
+delta_T3<- .delta_T3[.delta_T3 !=0]
+
+.delta_T4<-NULL
+for (i in 1:Q) {
+  .delta_T4[i]<- sum(interval.matrix[i, ]==5)
+}
+delta_T4<- .delta_T4[.delta_T4 !=0]
+
+.delta_T5<-NULL
+for (i in 1:Q) {
+  .delta_T5[i]<- sum(interval.matrix[i, ]==6)
+}
+delta_T5<- .delta_T5[.delta_T5 !=0]
+
+.delta_T6<-NULL
+for (i in 1:Q) {
+  .delta_T6[i]<- sum(interval.matrix[i, ]==7)
+}
+delta_T6<- .delta_T6[.delta_T6 !=0]
+
+.delta_T7<-NULL
+for (i in 1:Q) {
+  .delta_T7[i]<- sum(interval.matrix[i, ]==8)
+}
+delta_T7<- .delta_T7[.delta_T7 !=0]
+
+.delta_T8<-NULL
+for (i in 1:Q) {
+  .delta_T8[i]<- sum(interval.matrix[i, ]==9)
+}
+delta_T8<- .delta_T8[.delta_T8 !=0]
+
+.delta_T9<-NULL
+for (i in 1:Q) {
+  .delta_T9[i]<- sum(interval.matrix[i, ]==10)
+}
+delta_T9<- .delta_T9[.delta_T9 !=0]
+
+.delta_T10<-NULL
+for (i in 1:Q) {
+  .delta_T10[i]<- sum(interval.matrix[i, ]==11)
+}
+delta_T10<- .delta_T10[.delta_T10 !=0]
+
+
+##Create sums of participants present at each timepoint 1-10 
+
+N1<- Q - sum(.delta_T1 ==0) 
+N2<- Q- sum( .delta_T2==0)
+N3<- Q- sum( .delta_T3==0)
+N4<- Q- sum( .delta_T4==0)
+N5<- Q- sum( .delta_T5==0)
+N6<- Q- sum( .delta_T6==0)
+N7<- Q- sum( .delta_T7==0)
+N8<- Q- sum( .delta_T8==0)
+N9<- Q- sum( .delta_T9==0)
+N10<-Q- sum( .delta_T10==0)
+
+
+####create vectors of outcomes 
+outcome<-NULL
+for (k in 1:nrow(df)) {
+  outcome[[k]]<-outcome.matrix[k,][which(sample.matrix[k,]==1)]
+}
+outcome<-lapply (outcome,'length<-', max(lengths(outcome)))
+outcome.matrix<-t(do.call(cbind,outcome))
+
+y1<- na.omit(outcome.matrix[,1:2])+1 #state 2= carrying ST131, state 1= not carrying ST131
+y2<- na.omit(outcome.matrix[,2:3])+1
+y3<- na.omit(outcome.matrix[,3:4])+1
+y4<- na.omit(outcome.matrix[,4:5])+1
+y5<- na.omit(outcome.matrix[,5:6])+1
+y6<- na.omit(outcome.matrix[,6:7])+1
+y7<- na.omit(outcome.matrix[,7:8])+1
+y8<- na.omit(outcome.matrix[,8:9])+1
+y9<- na.omit(outcome.matrix[,9:10])+1
+y10<- na.omit(outcome.matrix[,10:11])+1
+
+
+##Covariate vectors for indivs present at each timepoint 
+X <- with(df, cbind(rep(1,Q))) 
+X1 <- cbind(X[-(c(as.numeric(which(.delta_T1==0)))),])
+X2<- cbind(X[-(c(as.numeric(which(.delta_T2==0)))),])
+X3 <- cbind(X[-(c(as.numeric(which(.delta_T3==0)))),])
+X4 <- cbind(X[-(c(as.numeric(which(.delta_T4==0)))),])
+X5 <- cbind(X[-(c(as.numeric(which(.delta_T5==0)))),])
+X6 <- cbind(X[-(c(as.numeric(which(.delta_T6==0)))),])
+X7 <- cbind(X[-(c(as.numeric(which(.delta_T7==0)))),])
+X8 <- cbind(X[-(c(as.numeric(which(.delta_T8==0)))),])
+X9<- cbind(X[-(c(as.numeric(which(.delta_T9==0)))),])
+X10<- cbind(X[-(c(as.numeric(which(.delta_T10==0)))),])
+
+D <- ncol(X) ##number of covariates 
+K <- as.integer(2) #number of states 
+
+#number of samples between time points
+T1<- 2 
+T2<- 2
+T3<- 2
+T4<- 2
+T5<- 2
+T6<- 2
+T7<- 2
+T8<- 2
+T9<- 2
+T10<- 2
+
+
+##compile data 
+TS.data<-list(K = 2, D = D,
+              delta_T1 = delta_T1, delta_T2 = delta_T2, delta_T3 = delta_T3, delta_T4 = delta_T4, delta_T5 = delta_T5, delta_T6 = delta_T6,
+              delta_T7 = delta_T7, delta_T8 = delta_T8, delta_T9 = delta_T9, delta_T10 = delta_T10,
+              y1 = y1, y2 = y2, y3 = y3, y4 = y4, y5 = y5, y6 = y6, y7 = y7, y8 = y8, y9 = y9, y10 = y10,
+              X1=X1,X2 = X2,X3 = X3, X4 = X4, X5 = X5, X6 = X6, X7 = X7, X8 = X8, X9=X9, X10 = X10,
+              N1 = N1,N2 = N2, N3 = N3, N4 = N4, N5 = N5, N6 = N6, N7 = N7, N8 = N8, N9 = N9, N10 = N10,
+              T1 = T1, T2 = T2, T3 = T3, T4=T4, T5=T5, T6=T6, T7=T7, T8 = T8, T9 = T9, T10 = T10)
+
+##run stan model and save 
+
+NONCORES2.data<-list(K = 2, D = D,
+                    delta_T1 = delta_T1, delta_T2 = delta_T2, delta_T3 = delta_T3, delta_T4 = delta_T4, delta_T5 = delta_T5, delta_T6 = delta_T6,
+                    delta_T7 = delta_T7, delta_T8 = delta_T8, delta_T9 = delta_T9, delta_T10 = delta_T10,
+                    y1 = y1, y2 = y2, y3 = y3, y4 = y4, y5 = y5, y6 = y6, y7 = y7, y8 = y8, y9 = y9, y10 = y10,
+                    X1=X1,X2 = X2,X3 = X3, X4 = X4, X5 = X5, X6 = X6, X7 = X7, X8 = X8, X9=X9, X10 = X10,
+                    N1 = N1,N2 = N2, N3 = N3, N4 = N4, N5 = N5, N6 = N6, N7 = N7, N8 = N8, N9 = N9, N10 = N10,
+                    T1 = T1, T2 = T2, T3 = T3, T4=T4, T5=T5, T6=T6, T7=T7, T8 = T8, T9 = T9, T10 = T10)
+
+
+
+NONCORES2.indiv.model1 <- rstan::stan(file="No Covariates.stan", data=NONCORES2.data, iter=20000, chains = 3, cores=6, control=list(adapt_delta=0.95))
+
+save(NONCORES2.indiv.model1, file = 'NONCORES2.indiv.model1.Rdata')
+
+
+```
+
+
