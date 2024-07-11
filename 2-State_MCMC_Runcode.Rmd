@@ -355,7 +355,7 @@ save(TS2.indiv.model1, file = 'TS2.indiv.model1.Rdata')
 ##Run two-state MCMC for subgroup: persistent carriers 
 ```{r, echo = FALSE}
 ##subset to persistent carriers 
-
+load("Apr18_datafinal.Rdata")
 d.short <- subset(MVdf, select = c(subject_code,family_code, date_collected.y, timepoint, overall, PERS2FIN, CORES2))
 
 colnames(d.short) <- c("subject_code", "family_code", "date_collected", "timepoint", "ST131POS", "PERS2FIN", "CORES2")
@@ -649,6 +649,7 @@ save(PERS2.indiv.model1, file = 'PERS2.indiv.model1.Rdata')
 ##Run two-state MCMC for subgroup: coresidents of persistent carriers 
 
 ```{r, echo=FALSE}
+load("Apr18_datafinal.Rdata")
 d.short <- subset(MVdf, select = c(subject_code,family_code, date_collected.y, timepoint, overall, PERS2FIN, CORES2))
 
 colnames(d.short) <- c("subject_code", "family_code", "date_collected", "timepoint", "ST131POS", "PERS2FIN", "CORES2")
@@ -939,7 +940,7 @@ save(CORES2.indiv.model1, file = 'CORES2.indiv.model1.Rdata')
 ##Run two-state MCMC for subgroup: all others 
 
 ```{r}
-
+load("Apr18_datafinal.Rdata")
 d.short <- subset(MVdf, select = c(subject_code,family_code, date_collected.y, timepoint, overall, PERS2FIN, CORES2))
 
 colnames(d.short) <- c("subject_code", "family_code", "date_collected", "timepoint", "ST131POS", "PERS2FIN", "CORES2")
