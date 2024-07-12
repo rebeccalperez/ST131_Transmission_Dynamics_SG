@@ -1,0 +1,431 @@
+---
+title: "ST131 Multivariate_Univariate_Regression_Analysis"
+author: "Rebecca Perez"
+date: "2024-07-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/FEB_ST131/Updated ST131 Code")
+
+
+setwd("/Users/FEB_ST131/Updated ST131 Code")
+load("Apr18_datafinal.Rdata")
+WC_metadata <- read.csv("ST131_metadata_isolate_cleaned.csv")
+
+```
+
+
+##Format data for analysis 
+
+```{r}
+##Create summary variable: total positive samples per individual 
+
+WC_metadata <- WC_metadata[WC_metadata$subject_type == "human",]
+
+final_short <- subset(WC_metadata, select = c("subject_code", "sample_code", "case_control", "case_control_fam", "wgs_st131"))
+
+final_short$WGS_iso_pos <- ifelse(is.na(final_short$wgs_st131), 0, final_short$wgs_st131)
+  
+samples <- unique(final_short$sample_code)
+
+final_short$samp_pos <- NA
+
+##create summary positives: by sample 
+bysample <- final_short[1,]
+for(s in samples){
+  
+  samp <- final_short[final_short$sample_code == s,]
+  samp$samp_pos <- sum(samp$WGS_iso_pos)
+  
+  samp <- samp[1,]
+  
+  bysample <- rbind(bysample, samp)
+
+}
+
+bysample <- bysample[-1,]
+
+
+MVdf <- left_join(MVdf, bysample, by = "sample_code")
+
+MVdf$overall <- ifelse(MVdf$samp_pos > 0, 1, 0)
+
+##create summary positives: by individual 
+
+indivs <- unique(MVdf$subject_code.x)
+
+MVdf$summaryPOS <- NA
+MVdf$propPOS <- NA
+byindiv <- MVdf[1,] ##create binding row 
+
+for(i in indivs){
+  subject <- MVdf[MVdf$subject_code.x == i,]
+  subject$summaryPOS <- sum(subject$overall)
+  subject$propPOS <- subject$summaryPOS/nrow(subject)
+  subject <- subject[1,]
+  byindiv <- rbind(byindiv, subject)
+}
+
+byindiv <- byindiv[-1,] #remove binding row 
+
+##create column for carrier status <- if any sample is positive, indiv is a carrier 
+
+byindiv$Carrier_Stat <- ifelse(byindiv$summaryPOS > 0, 1, 0)
+
+##set NONCORES (all others) as the reference variable 
+  
+byindiv$subgroup2 <- with(byindiv, factor(subgroup2, levels = c("NONCORES", "CORES", "PERS")))
+
+byindiv$subgroup2 <- factor(byindiv$subgroup2, ordered = FALSE)
+byindiv$subgroup2 <- relevel(byindiv$subgroup2, ref = "NONCORES") 
+
+##format age as numeric 
+byindiv$age <- as.numeric(byindiv$age)
+
+```
+
+
+###Regression analysis: carriage by individual 
+```{r}
+
+##number of positives per individual 
+MV1 <- glm(summaryPOS~medicalcond+incontinent+female+ hospital + medevs + age + hometime + subgroup2 + ant_6mnths, data=byindiv, family = "poisson")
+
+summary(MV1)
+
+###carrier status per individual 
+MV2 <- glm(Carrier_Stat~medicalcond+incontinent+female+ hospital + medevs + age + hometime + subgroup2 + ant_6mnths, data=byindiv, family = "binomial")
+
+summary(MV2)
+
+```
+
+##Plot multivariate results 
+
+```{r}
+
+library(ggplot2)
+library(extrafont)
+library(forester)
+
+obj <- as.data.frame(coef(summary.glm(MV1)))
+
+plotdatameans1 <- obj[-1,1] ##remove intercept 
+plotdatasds1 <- obj[-1,2]
+
+plotdataframe1 <- matrix(nrow = 10, ncol= 5, data = NA)
+
+plotdataframe1[,1] <- (as.numeric(exp(plotdatameans1)))
+plotdataframe1[,2]<- as.numeric(exp(plotdatameans1 - (1.96 *plotdatasds1)))
+plotdataframe1[,3]<- as.numeric(exp(plotdatameans1 + (1.96 *plotdatasds1)))
+plotdataframe1[,5] <- 1:10
+plotdataframe1[,4] <-  c("Comorbidity", "Incontinence", "Sex (Female)", "Hospital stay within past year", "Medical devices", "Age", ">30 hours at home per week", "Coresident with persistent carrier", "Persistent carrier", "Antibiotic use within past six months")
+
+plotdataframe1 <- as.data.frame(plotdataframe1)
+plotdataframe1[,1] <- as.numeric(plotdataframe1[,1])
+plotdataframe1[,2] <- as.numeric(plotdataframe1[,2])
+plotdataframe1[,3] <- as.numeric(plotdataframe1[,3])
+colnames(plotdataframe1) <- c("OR", "Lower", "Upper", "Covariate", "Index")
+
+pvals <- coef(summary.glm(MV1))
+pvals <- pvals[,4]
+pvals <- pvals[-1]
+pvals <- as.data.frame(pvals)
+pvals <- round(pvals, digits = 3)
+colnames(pvals) <- "P value"
+pvals[9,] <- "<0.001"
+
+variables <- cbind(as.data.frame(plotdataframe1[,4]), pvals)
+colnames(variables) <- c("_", "P value")
+
+plotdataframe1$"P value" <- variables$`P value`
+
+plotdataframe1 <- plotdataframe1 %>% arrange(factor(Covariate, levels = c("Sex (Female)", "Age", ">30 hours at home per week", "Persistent carrier", "Coresident with persistent carrier", "Comorbidity", "Incontinence", "Medical devices" , "Antibiotic use within past six months", "Hospital stay within past year")))
+
+forester(plotdataframe1[,c(4,6)], plotdataframe1[,1], plotdataframe1[,2], plotdataframe1[,3], ci_sep = " - ", null_line_at = 1, estimate_col_name = "Odds Ratio (95% CI)", file_path = "/Users/lynnperez/Downloads/UPDATE_multivariate_carrier_status.png", x_scale_linear = FALSE, nudge_width = -0.5, font_family = "Arial", xbreaks = c(.1, 1, 5, 10), stripe_colour = "white", point_sizes = 2)
+
+```
+
+##Univariate analysis
+
+```{r}
+univalues <- matrix(data = NA, nrow = 10, ncol = 7)
+
+comor <- glm(summaryPOS~medicalcond, data = byindiv, family = "poisson")
+obj <- as.data.frame(coef(summary.glm(comor)))
+
+
+univalues[1,1] <- obj[2,1]
+univalues[1,2] <- obj[2,2]
+univalues[1,7] <- obj[2,4]
+
+incont <- glm(summaryPOS~incontinent, data = byindiv, family = "poisson")
+obj <- as.data.frame(coef(summary.glm(incont)))
+
+
+univalues[2,1] <- obj[2,1]
+univalues[2,2] <- obj[2,2]
+univalues[2,7] <- obj[2,4]
+
+sex <- glm(summaryPOS~female, data = byindiv, family = "poisson")
+obj <- as.data.frame(coef(summary.glm(sex)))
+
+
+univalues[3,1] <- obj[2,1]
+univalues[3,2] <- obj[2,2]
+univalues[3,7] <- obj[2,4]
+
+
+hosp <- glm(summaryPOS~hospital, data = byindiv, family = "poisson")
+obj <- as.data.frame(coef(summary.glm(hosp)))
+
+
+univalues[4,1] <- obj[2,1]
+univalues[4,2] <- obj[2,2]
+univalues[4,7] <- obj[2,4]
+
+meddevs <- glm(summaryPOS~medevs, data = byindiv, family = "poisson")
+obj <- as.data.frame(coef(summary.glm(meddevs)))
+
+
+univalues[5,1] <- obj[2,1]
+univalues[5,2] <- obj[2,2]
+univalues[5,7] <- obj[2,4]
+
+age <- glm(summaryPOS~age, data = byindiv, family = "poisson")
+obj <- as.data.frame(coef(summary.glm(age)))
+
+
+univalues[6,1] <- obj[2,1]
+univalues[6,2] <- obj[2,2]
+univalues[6,7] <- obj[2,4]
+
+hometime <- glm(summaryPOS~hometime, data = byindiv, family = "poisson")
+obj <- as.data.frame(coef(summary.glm(hometime)))
+
+
+univalues[7,1] <- obj[2,1]
+univalues[7,2] <- obj[2,2]
+univalues[7,7] <- obj[2,4]
+
+subgroup <- glm(summaryPOS~subgroup2, data = byindiv, family = "poisson")
+summary(subgroup)
+obj <- as.data.frame(coef(summary.glm(subgroup)))
+univalues[8,1] <- obj[2,1]
+univalues[8,2] <- obj[2,2]
+univalues[8,7] <- obj[2,4]
+univalues[9,1] <- obj[3,1]
+univalues[9,2] <- obj[3,2]
+univalues[9,7] <- obj[3,4]
+
+
+
+ant <- glm(Carrier_Stat~ant_6mnths, data = byindiv, family = "poisson")
+obj <- as.data.frame(coef(summary.glm(ant)))
+univalues[10,1] <- obj[2,1]
+univalues[10,2] <- obj[2,2]
+univalues[10,7] <- obj[2,4]
+
+
+univalues[,3] <- exp(univalues[,1])
+univalues[,4] <- exp(univalues[,1]-1.96*univalues[,2])
+univalues[,5] <- exp(univalues[,1]+1.96*univalues[,2])
+
+
+univalues <- univalues[,3:7]
+```
+
+
+##Plot univariate results
+
+```{r}
+colnames(univalues) <- c("OR", "Lower", "Upper", "Index", "P value")
+
+
+Covnames <- as.data.frame(c("Comorbidity", "Incontinence", "Sex (Female)", "Hospital stay within past year", "Medical devices", "Age", ">30 hours at home per week", "Coresident with persistent carrier", "Persistent carrier", "Antibiotic use within past six months"))
+
+colnames(Covnames) <- "Covariate"
+
+univalues <- cbind(univalues, Covnames)
+
+univalues$Index <- seq(1,10, by = 1)
+
+plotunivalues <- univalues
+
+plotunivalues <- plotunivalues%>%
+  arrange(plotunivalues[,6])
+
+plotunivalues$`P value` <- round(plotunivalues$`P value`, digits = 3)
+plotunivalues$`P value`[9] <- "<0.001"
+
+plotunivalues <- plotunivalues %>% arrange(factor(Covariate, levels = c("Sex (Female)", "Age", ">30 hours at home per week", "Persistent carrier", "Coresident with persistent carrier", "Comorbidity", "Incontinence", "Medical devices" , "Antibiotic use within past six months", "Hospital stay within past year")))
+
+
+forester(plotunivalues [,c(6,5)], plotunivalues[,1], plotunivalues[,2], plotunivalues[,3], ci_sep = " - ", null_line_at = 1, estimate_col_name = "Odds Ratio (95% CI)", file_path = "/Users/lynnperez/Downloads/UPDATED_univariate_carrier_status.png", x_scale_linear = FALSE, nudge_width = -0.5, font_family = "Arial", xbreaks = c(.1, 1, 5, 10), stripe_colour = "white", point_sizes = 2)
+
+
+```
+
+
+##Regression analysis: persistent carrier status 
+
+```{r}
+MV3 <- glm(PERS2FIN~medicalcond+incontinent+female+ hospital + medevs + over60 + hometime + ant_6mnths, data=byindiv, family = "binomial")
+
+summary(MV3)
+```
+
+##Plot multivariate results 
+
+```{r}
+obj <- as.data.frame(coef(summary.glm(MV3)))
+
+plotdatameans2 <- obj[-1,1] ##remove intercept 
+plotdatasds2 <- obj[-1,2]
+
+plotdataframe2 <- matrix(nrow = 8, ncol= 5, data = NA)
+
+plotdataframe2[,1] <- (as.numeric(exp(plotdatameans2)))
+plotdataframe2[,2]<- as.numeric(exp(plotdatameans2 - (1.96 *plotdatasds2)))
+plotdataframe2[,3]<- as.numeric(exp(plotdatameans2 + (1.96 *plotdatasds2)))
+plotdataframe2[,5] <- 1:8
+plotdataframe2[,4] <-  c("Comorbidity", "Incontinence", "Sex (Female)", "Hospital stay within past year", "Medical devices", "Age", ">30 hours at home per week", "Antibiotic use within past six months")
+
+
+plotdataframe2 <- as.data.frame(plotdataframe2)
+plotdataframe2[,1] <- as.numeric(plotdataframe2[,1])
+plotdataframe2[,2] <- as.numeric(plotdataframe2[,2])
+plotdataframe2[,3] <- as.numeric(plotdataframe2[,3])
+colnames(plotdataframe2) <- c("OR", "Lower", "Upper", "Covariate", "Index")
+
+
+pvals <- coef(summary.glm(MV3))
+pvals <- pvals[,4]
+pvals <- pvals[-1]
+pvals <- as.data.frame(pvals)
+pvals <- round(pvals, digits = 3)
+colnames(pvals) <- "P value"
+
+variables <- cbind(as.data.frame(plotdataframe2[,4]), pvals)
+colnames(variables) <- c("_", "P value")
+
+plotdataframe2$"P value" <- variables$`P value`
+
+plotdataframe2 <- plotdataframe2 %>% arrange(factor(Covariate, levels = c("Sex (Female)", "Age", ">30 hours at home per week", "Comorbidity", "Incontinence", "Medical devices" , "Antibiotic use within past six months", "Hospital stay within past year")))
+
+
+forester(plotdataframe2[,c(4,6)], plotdataframe2[,1], plotdataframe2[,2], plotdataframe2[,3], ci_sep = " - ", null_line_at = 1, estimate_col_name = "Odds Ratio (95% CI)", file_path = "/Users/lynnperez/Downloads/UPDATED_multivariate_persister.png", x_scale_linear = FALSE, nudge_width = -0.5, font_family = "Arial", xbreaks = c(.1, 1, 5, 10), xlim = c(.08, 15), stripe_colour = "white", point_sizes = 2)
+
+```
+
+
+##Univariate analysis:
+
+```{r}
+univalues2 <- matrix(data = NA, nrow = 8, ncol = 7)
+
+
+comor <- glm(PERS2FIN~medicalcond, data = byindiv, family = "binomial")
+obj <- as.data.frame(coef(summary.glm(comor)))
+
+
+univalues2[1,1] <- obj[2,1]
+univalues2[1,2] <- obj[2,2]
+univalues2[1,7] <- obj[2,4]
+
+incont <- glm(PERS2FIN~incontinent, data = byindiv, family = "binomial")
+obj <- as.data.frame(coef(summary.glm(incont)))
+
+
+univalues2[2,1] <- obj[2,1]
+univalues2[2,2] <- obj[2,2]
+univalues2[2,7] <- obj[2,4]
+
+sex <- glm(PERS2FIN~female, data = byindiv, family = "binomial")
+obj <- as.data.frame(coef(summary.glm(sex)))
+
+
+univalues2[3,1] <- obj[2,1]
+univalues2[3,2] <- obj[2,2]
+univalues2[3,7] <- obj[2,4]
+
+
+hosp <- glm(PERS2FIN~hospital, data = byindiv, family = "binomial")
+obj <- as.data.frame(coef(summary.glm(hosp)))
+
+
+univalues2[4,1] <- obj[2,1]
+univalues2[4,2] <- obj[2,2]
+univalues2[4,7] <- obj[2,4]
+
+meddevs <- glm(PERS2FIN~medevs, data = byindiv, family = "binomial")
+obj <- as.data.frame(coef(summary.glm(meddevs)))
+
+
+univalues2[5,1] <- obj[2,1]
+univalues2[5,2] <- obj[2,2]
+univalues2[5,7] <- obj[2,4]
+
+byindiv$age <- as.numeric(byindiv$age)
+age <- glm(PERS2FIN~age, data = byindiv, family = "binomial")
+obj <- as.data.frame(coef(summary.glm(age)))
+
+
+univalues2[6,1] <- obj[2,1]
+univalues2[6,2] <- obj[2,2]
+univalues2[6,7] <- obj[2,4]
+
+hometime <- glm(PERS2FIN~hometime, data = byindiv, family = "binomial")
+obj <- as.data.frame(coef(summary.glm(hometime)))
+
+
+univalues2[7,1] <- obj[2,1]
+univalues2[7,2] <- obj[2,2]
+univalues2[7,7] <- obj[2,4]
+
+
+
+ant <- glm(PERS2FIN~ant_6mnths, data = byindiv, family = "binomial")
+obj <- as.data.frame(coef(summary.glm(ant)))
+
+univalues2[8,1] <- obj[2,1]
+univalues2[8,2] <- obj[2,2]
+univalues2[8,7] <- obj[2,4]
+
+
+univalues2[,3] <- exp(univalues[,1])
+univalues2[,4] <- exp(univalues2[,1]-1.96*univalues2[,2])
+univalues[,5] <- exp(univalues[,1]+1.96*univalues[,2])
+
+
+univalues2 <- univalues2[,3:7]
+```
+
+##Plotting univariate results 
+```{r}
+
+colnames(univalues) <- c("OR", "Lower", "Upper", "Index", "P value")
+
+
+Covnames <- as.data.frame(c("Comorbidity", "Incontinence", "Sex (Female)", "Hospital stay within past year", "Medical devices", "Age", ">30 hours at home per week", "Antibiotic use within past six months"))
+
+colnames(Covnames) <- "Covariate"
+
+univalues <- cbind(univalues, Covnames)
+
+univalues$Index <- seq(1,8, by = 1)
+
+plotunivalues <- univalues
+
+plotunivalues <- plotunivalues %>% arrange(factor(Covariate, levels = c("Sex (Female)", "Age", ">30 hours at home per week", "Comorbidity", "Incontinence", "Medical devices" , "Antibiotic use within past six months", "Hospital stay within past year")))
+
+
+plotunivalues$`P value` <- round(plotunivalues$`P value`, digits = 3)
+
+forester(plotunivalues[,c(6,5)], plotunivalues[,1], plotunivalues[,2], plotunivalues[,3], ci_sep = " - ", null_line_at = 1, estimate_col_name = "Odds Ratio (95% CI)", file_path = "/Users/lynnperez/Downloads/UPDATED_univariate_persister.png", nudge_width = -0.5, font_family = "Arial", x_scale_linear=FALSE, xbreaks = c(.1, 1, 5, 10), xlim = c(0.1, 15), stripe_colour = "white", point_sizes = 2)
+
+
+```
+
