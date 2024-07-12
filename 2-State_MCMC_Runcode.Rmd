@@ -344,7 +344,7 @@ TS.data<-list(K = 2, D = D,
               T1 = T1, T2 = T2, T3 = T3, T4=T4, T5=T5, T6=T6, T7=T7, T8 = T8, T9 = T9, T10 = T10)
 
 ##run stan model and save 
-TS2.indiv.model1 <- rstan::stan(file="No Covariates.stan", data=TS.data, iter=20000, chains = 3, cores=6, control=list(adapt_delta=0.95))
+TS2.indiv.model1 <- rstan::stan(file="Two_State_MCMC_T10.stan", data=TS.data, iter=20000, chains = 3, cores=6, control=list(adapt_delta=0.95))
 
 save(TS2.indiv.model1, file = 'TS2.indiv.model1.Rdata')
 
@@ -639,7 +639,7 @@ TS.dataPERS2<-list(K = 2, D = D,
 
 ##Run model and save 
 
-PERS2.indiv.model1 <- rstan::stan(file="NoCov PERS.stan", data=TS.dataPERS2, iter=20000, chains = 3, cores=6, control=list(adapt_delta=0.95))
+PERS2.indiv.model1 <- rstan::stan(file="Two_State_MCMC_T5.stan", data=TS.dataPERS2, iter=20000, chains = 3, cores=6, control=list(adapt_delta=0.95))
 
 save(PERS2.indiv.model1, file = 'PERS2.indiv.model1.Rdata')
 
@@ -930,7 +930,7 @@ TS.dataCORES2<-list(K = 2, D = D,
 
 ##run stan model and save 
 
-CORES2.indiv.model1 <- rstan::stan(file="NoCov PERS.stan", data=TS.dataCORES2, iter=20000, chains = 3, cores=6, control=list(adapt_delta=0.95))
+CORES2.indiv.model1 <- rstan::stan(file="Two_State_MCMC_T5.stan", data=TS.dataCORES2, iter=20000, chains = 3, cores=6, control=list(adapt_delta=0.95))
 
 save(CORES2.indiv.model1, file = 'CORES2.indiv.model1.Rdata')
 
@@ -1274,7 +1274,7 @@ NONCORES2.data<-list(K = 2, D = D,
 
 
 
-NONCORES2.indiv.model1 <- rstan::stan(file="No Covariates.stan", data=NONCORES2.data, iter=20000, chains = 3, cores=6, control=list(adapt_delta=0.95))
+NONCORES2.indiv.model1 <- rstan::stan(file="Two_State_MCMC_T10.stan", data=NONCORES2.data, iter=20000, chains = 3, cores=6, control=list(adapt_delta=0.95))
 
 save(NONCORES2.indiv.model1, file = 'NONCORES2.indiv.model1.Rdata')
 
