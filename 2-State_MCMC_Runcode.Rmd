@@ -13,6 +13,7 @@ library(rstan)
 ```
 
 ##Load and format data for all participants in the study (n = 124)
+##Run MCMC for all participants in the study 
 ```{r, echo = FALSE}
 ##subset data to relevant columns 
 load("Apr18_datafinal.Rdata")
@@ -42,68 +43,68 @@ t1df <- subset(d.working, timepoint == 1)
 t1df$T1 <- t1df$date_collected
 t1df$T1ST131 <- t1df$ST131POS
 
-t2df <- subset(d.short, timepoint == 2)
+t2df <- subset(d.working, timepoint == 2)
 t2df$T2 <- t2df$date_collected
 t2df$T2ST131 <- t2df$ST131POS
 
 
 df<- full_join(t1df, t2df[,c(1,ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t3df <- subset(d.short, timepoint == 3)
+t3df <- subset(d.working, timepoint == 3)
 t3df$T3 <- t3df$date_collected
 t3df$T3ST131 <- t3df$ST131POS
 
 df<- full_join(df, t3df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t4df <- subset(d.short, timepoint == 4)
+t4df <- subset(d.working, timepoint == 4)
 t4df$T4 <- t4df$date_collected
 t4df$T4ST131 <- t4df$ST131POS
 
 df<- full_join(df, t4df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t5df <- subset(d.short, timepoint == 5)
+t5df <- subset(d.working, timepoint == 5)
 t5df$T5 <- t5df$date_collected
 t5df$T5ST131 <- t5df$ST131POS
 
 df<- full_join(df, t5df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t6df <- subset(d.short, timepoint == 6)
+t6df <- subset(d.working, timepoint == 6)
 t6df$T6 <- t6df$date_collected
 t6df$T6ST131 <- t6df$ST131POS
 
 df<- full_join(df, t6df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t7df <- subset(d.short, timepoint == 7)
+t7df <- subset(d.working, timepoint == 7)
 t7df$T7 <- t7df$date_collected
 t7df$T7ST131 <- t7df$ST131POS
 
 df<- full_join(df, t7df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t8df <- subset(d.short, timepoint == 8)
+t8df <- subset(d.working, timepoint == 8)
 t8df$T8 <- t8df$date_collected
 t8df$T8ST131 <- t8df$ST131POS
 
 df<- full_join(df, t8df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t9df <- subset(d.short, timepoint == 9)
+t9df <- subset(d.working, timepoint == 9)
 t9df$T9 <- t9df$date_collected
 t9df$T9ST131 <- t9df$ST131POS
 
 df<- full_join(df, t9df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t10df <- subset(d.short, timepoint == 10)
+t10df <- subset(d.working, timepoint == 10)
 t10df$T10 <- t10df$date_collected
 t10df$T10ST131 <- t10df$ST131POS
 
 df<- full_join(df, t10df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t11df <- subset(d.short, timepoint == 11)
+t11df <- subset(d.working, timepoint == 11)
 t11df$T11 <- t11df$date_collected
 t11df$T11ST131 <- t11df$ST131POS
 
 df<- full_join(df, t11df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t12df <- subset(d.short, timepoint == 12)
+t12df <- subset(d.working, timepoint == 12)
 t12df$T12 <- t12df$date_collected
 t12df$T12ST131 <- t12df$ST131POS
 
@@ -380,68 +381,68 @@ t1df <- subset(d.working, timepoint == 1)
 t1df$T1 <- t1df$date_collected
 t1df$T1ST131 <- t1df$ST131POS
 
-t2df <- subset(d.short, timepoint == 2)
+t2df <- subset(d.working, timepoint == 2)
 t2df$T2 <- t2df$date_collected
 t2df$T2ST131 <- t2df$ST131POS
 
 
 df<- full_join(t1df, t2df[,c(1,ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t3df <- subset(d.short, timepoint == 3)
+t3df <- subset(d.working, timepoint == 3)
 t3df$T3 <- t3df$date_collected
 t3df$T3ST131 <- t3df$ST131POS
 
 df<- full_join(df, t3df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t4df <- subset(d.short, timepoint == 4)
+t4df <- subset(d.working, timepoint == 4)
 t4df$T4 <- t4df$date_collected
 t4df$T4ST131 <- t4df$ST131POS
 
 df<- full_join(df, t4df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t5df <- subset(d.short, timepoint == 5)
+t5df <- subset(d.working, timepoint == 5)
 t5df$T5 <- t5df$date_collected
 t5df$T5ST131 <- t5df$ST131POS
 
 df<- full_join(df, t5df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t6df <- subset(d.short, timepoint == 6)
+t6df <- subset(d.working, timepoint == 6)
 t6df$T6 <- t6df$date_collected
 t6df$T6ST131 <- t6df$ST131POS
 
 df<- full_join(df, t6df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t7df <- subset(d.short, timepoint == 7)
+t7df <- subset(d.working, timepoint == 7)
 t7df$T7 <- t7df$date_collected
 t7df$T7ST131 <- t7df$ST131POS
 
 df<- full_join(df, t7df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t8df <- subset(d.short, timepoint == 8)
+t8df <- subset(d.working, timepoint == 8)
 t8df$T8 <- t8df$date_collected
 t8df$T8ST131 <- t8df$ST131POS
 
 df<- full_join(df, t8df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t9df <- subset(d.short, timepoint == 9)
+t9df <- subset(d.working, timepoint == 9)
 t9df$T9 <- t9df$date_collected
 t9df$T9ST131 <- t9df$ST131POS
 
 df<- full_join(df, t9df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t10df <- subset(d.short, timepoint == 10)
+t10df <- subset(d.working, timepoint == 10)
 t10df$T10 <- t10df$date_collected
 t10df$T10ST131 <- t10df$ST131POS
 
 df<- full_join(df, t10df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t11df <- subset(d.short, timepoint == 11)
+t11df <- subset(d.working, timepoint == 11)
 t11df$T11 <- t11df$date_collected
 t11df$T11ST131 <- t11df$ST131POS
 
 df<- full_join(df, t11df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t12df <- subset(d.short, timepoint == 12)
+t12df <- subset(d.working, timepoint == 12)
 t12df$T12 <- t12df$date_collected
 t12df$T12ST131 <- t12df$ST131POS
 
@@ -674,68 +675,68 @@ t1df <- subset(d.working, timepoint == 1)
 t1df$T1 <- t1df$date_collected
 t1df$T1ST131 <- t1df$ST131POS
 
-t2df <- subset(d.short, timepoint == 2)
+t2df <- subset(d.working, timepoint == 2)
 t2df$T2 <- t2df$date_collected
 t2df$T2ST131 <- t2df$ST131POS
 
 
 df<- full_join(t1df, t2df[,c(1,ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t3df <- subset(d.short, timepoint == 3)
+t3df <- subset(d.working, timepoint == 3)
 t3df$T3 <- t3df$date_collected
 t3df$T3ST131 <- t3df$ST131POS
 
 df<- full_join(df, t3df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t4df <- subset(d.short, timepoint == 4)
+t4df <- subset(d.working, timepoint == 4)
 t4df$T4 <- t4df$date_collected
 t4df$T4ST131 <- t4df$ST131POS
 
 df<- full_join(df, t4df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t5df <- subset(d.short, timepoint == 5)
+t5df <- subset(d.working, timepoint == 5)
 t5df$T5 <- t5df$date_collected
 t5df$T5ST131 <- t5df$ST131POS
 
 df<- full_join(df, t5df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t6df <- subset(d.short, timepoint == 6)
+t6df <- subset(d.working, timepoint == 6)
 t6df$T6 <- t6df$date_collected
 t6df$T6ST131 <- t6df$ST131POS
 
 df<- full_join(df, t6df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t7df <- subset(d.short, timepoint == 7)
+t7df <- subset(d.working, timepoint == 7)
 t7df$T7 <- t7df$date_collected
 t7df$T7ST131 <- t7df$ST131POS
 
 df<- full_join(df, t7df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t8df <- subset(d.short, timepoint == 8)
+t8df <- subset(d.working, timepoint == 8)
 t8df$T8 <- t8df$date_collected
 t8df$T8ST131 <- t8df$ST131POS
 
 df<- full_join(df, t8df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t9df <- subset(d.short, timepoint == 9)
+t9df <- subset(d.working, timepoint == 9)
 t9df$T9 <- t9df$date_collected
 t9df$T9ST131 <- t9df$ST131POS
 
 df<- full_join(df, t9df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t10df <- subset(d.short, timepoint == 10)
+t10df <- subset(d.working, timepoint == 10)
 t10df$T10 <- t10df$date_collected
 t10df$T10ST131 <- t10df$ST131POS
 
 df<- full_join(df, t10df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t11df <- subset(d.short, timepoint == 11)
+t11df <- subset(d.working, timepoint == 11)
 t11df$T11 <- t11df$date_collected
 t11df$T11ST131 <- t11df$ST131POS
 
 df<- full_join(df, t11df[,c(1, ncol(t2df), ncol(t2df)-1)], by = "subject_code")
 
-t12df <- subset(d.short, timepoint == 12)
+t12df <- subset(d.working, timepoint == 12)
 t12df$T12 <- t12df$date_collected
 t12df$T12ST131 <- t12df$ST131POS
 
