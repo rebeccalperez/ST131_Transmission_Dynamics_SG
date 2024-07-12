@@ -1,0 +1,111 @@
+---
+title: "HMM_False_Neg_Carriage_Estimation"
+author: "Rebecca Perez"
+date: "2024-07-12"
+output: html_document
+---
+
+##Format data 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/FEB_ST131/Updated ST131 Code")
+
+library(msm)
+library(ggplot2)
+
+setwd( "/Users/FEB_ST131/Updated ST131 Code")
+
+load("Apr18_datafinal.Rdata") 
+
+##format to relevant columns 
+
+forhmm <- subset(MVdf, select = c(subject_code, Day, overall))
+
+##format positive results to match required state vector format 
+
+forhmm$overall <- forhmm$overall + 1
+
+###identify individuals with only one timepoint 
+
+forhmm$count <- NA
+for(r in 1:nrow(forhmm)){
+  subcode <- forhmm$subject_code[r]
+  forhmm$count[r] <- sum(forhmm$subject_code == subcode)
+}
+
+##subset to remove these individuals with only one entry 
+
+forhmm <- forhmm[forhmm$count != 1,]
+
+
+```
+
+
+##Fit MSM with no false negative rate 
+
+```{r}
+
+msmrun0 <- msm(overall ~ Day, subject = subject_code, data = forhmm, qmatrix = rbind(c(0.5, 0.5), c(0.5, 0.5)))
+
+msmrun0
+sojourn.msm(msmrun0)
+pmatrix.msm(msmrun0) 
+
+
+ematrix_none <- sojourn.msm(msmrun0)[2,c(1,3,4)] 
+
+```
+
+##Fit MSM with varied false negative rate 0-20%, false positive rate fixed at 1%
+
+```{r, echo = FALSE}
+hmmplot <- as.data.frame(matrix(nrow = 100, ncol = 4, data = NA))
+hmmplot[,1] <- seq(from = 0.8, to = .9999, length.out = 100) ##create a sequence of true positive percentages (ie, proportion of state 2 that is observed as state 2)
+
+for (i in 1:nrow(hmmplot)){
+  hmmrunematloop <- msm(overall ~ Day, subject = subject_code, data = forhmm, qmatrix = rbind(c(0.01, 0.01), c(0.01, 0.01)), ematrix = rbind(c(0.01, 0.01), c(1-hmmplot[i,1], hmmplot[i,1])), fixedpars = c(3,4))
+  
+  if(!is.null(nrow(sojourn.msm(hmmrunematloop)))){
+    state2 <- sojourn.msm(hmmrunematloop)[[2,1]]
+    lower<- sojourn.msm(hmmrunematloop)[[2,3]]
+    upper<- sojourn.msm(hmmrunematloop)[[2,4]]
+    
+    hmmplot[i,2] <- state2
+    hmmplot[i,3] <- lower 
+    hmmplot[i,4] <- upper
+  }
+  print(ematrix.msm(hmmrunematloop))
+}
+
+
+colnames(hmmplot) <- c("State2Obs2", "Carriage", "Lower", "Upper")
+
+hmmplot$FalseNegRate <- 1- hmmplot$State2Obs2
+
+hmmplot <- as.data.frame(hmmplot)
+hmmplot$FalseNegRate <- as.numeric(hmmplot$FalseNegRate)
+hmmplot$Carriage<- as.numeric(hmmplot$Carriage)
+hmmplot$Lower<- as.numeric(hmmplot$Lower)
+hmmplot$Upper <- as.numeric(hmmplot$Upper)
+hmmplot$State2Obs2 <- as.numeric(hmmplot$State2Obs2)
+ematrix_none <- as.numeric(ematrix_none)
+
+```
+
+
+##Plot results 
+
+```{r}
+ggplot(hmmplot, aes(x=FalseNegRate, y = Carriage)) + geom_errorbar(aes(ymin = Lower, ymax = Upper, width = 0.0001), color = "#22A884FF") + geom_point(aes(x = FalseNegRate, y = Carriage), color = "#22A884FF", size = 3, pch = 18) + coord_cartesian(xlim = c(0, .2), ylim = c(0, 150)) +  ggtitle("Hidden Markov Model Estimates of Carriage Duration With False Negative Rate 0.00-0.20")+
+  xlab("False Negative Rate") + ylab("Carriage Duration Estimate (Days) [95% CI]") + scale_y_continuous(breaks = c(seq(-25,150, by = 25)), labels = c(seq(-25, 150, by = 25)))+ theme(
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 1),
+    plot.caption = element_text(hjust = 0), text =element_text(size=11, family = "Arial"), panel.background = element_rect(fill = "white", color = "white"), panel.grid.major.y = element_line("grey"), axis.line = element_line(color = "grey")) +
+  geom_hline(yintercept = ematrix_none[1], size = 1.1) + geom_hline(yintercept = ematrix_none[2], size = 1.1, linetype = "dashed") + geom_hline(yintercept = ematrix_none[3], size = 1.1, linetype = "dashed") 
+
+```
+
+
+
+
+
