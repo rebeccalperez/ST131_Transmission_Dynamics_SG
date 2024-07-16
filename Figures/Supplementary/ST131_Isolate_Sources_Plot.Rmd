@@ -1,0 +1,109 @@
+---
+title: "ST131_Isolate_Sources_Plot"
+author: "Rebecca Perez"
+date: "2024-07-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/FEB_ST131/Updated ST131 Code")
+library(dplyr)
+library(ggplot2)
+```
+
+##Format and subset data by source (human, environmental, domestic animal, food)
+##Sum and get proportion of positives by isolate 
+```{r}
+WC_metadata <- read.csv("ST131_metadata_isolate_cleaned.csv")
+
+positives_by_isolate <- as.data.frame(matrix(data = NA, nrow = 4, ncol = 2))
+
+colnames(positives_by_isolate) <- c("Positives", "Total Isolates")
+rownames(positives_by_isolate) <- c("Human", "Domestic Animal", "Food", "Environment")
+
+##Subset by source 
+humans <- WC_metadata[WC_metadata$subject_type == "human",]
+
+pets <- WC_metadata[WC_metadata$subject_type == "bird" | WC_metadata$subject_type == "cat",]
+
+food <- WC_metadata[WC_metadata$subject_type == "food",]
+
+enviro <- WC_metadata[WC_metadata$subject_type == "env",]
+
+#Create table to combine 
+positives_by_isolate[1,1] <- sum(humans$wgs_st131 ==1 & !is.na(humans$wgs_st131))
+positives_by_isolate[1,2] <- length(humans$wgs_st131)
+
+positives_by_isolate[2,1] <- sum(pets$qpcr_mnth ==1 & !is.na(pets$qpcr_mnth))
+positives_by_isolate[2,2] <- nrow(pets)
+
+positives_by_isolate[3,1] <- sum(food$qpcr_mnth ==1 & !is.na(food$qpcr_mnth))
+positives_by_isolate[3,2] <- nrow(food)
+
+positives_by_isolate[4,1] <- sum(enviro$qpcr_mnth ==1 & !is.na(enviro$qpcr_mnth))
+positives_by_isolate[4,2] <- nrow(enviro)
+
+positives_by_isolate$'Proportion of Total Positives' <- NA
+total_positives <- sum(positives_by_isolate$Positives)
+positives_by_isolate$`Proportion of Total Positives` <- positives_by_isolate$Positives / total_positives
+positives_by_isolate$Level <- "Isolate"
+positives_by_isolate$Category <- rownames(positives_by_isolate)
+
+```
+
+
+##Sum and get proportion of positives by sample 
+```{r}
+positives_by_isolate$`Proportion of Total Positives` <- as.numeric(positives_by_isolate$`Proportion of Total Positives`)
+
+positives_by_sample <- positives_by_isolate
+
+positives_by_sample$Level <- "Sample"
+
+positives_by_sample[1,1] <- 70
+positives_by_sample[1,2] <- 601
+
+pets_pos <- pets[pets$qpcr_mnth == 1,]
+positives_by_sample[2,1] <- length(unique(pets_pos$sample_code))
+positives_by_sample[2,2] <- 24 + 11
+
+food_pos <- food[food$qpcr_mnth == 1,]
+positives_by_sample[3,1] <- length(unique(food_pos$sample_code))
+positives_by_sample[3,2] <- 41 + 32
+
+enviro_pos <- enviro[enviro$qpcr_mnth == 1,]
+positives_by_sample[4,1] <- length(unique(enviro_pos$sample_code))
+positives_by_sample[4,2] <- 75 + 52
+
+positives_by_isolate <- rbind(positives_by_isolate, positives_by_sample)
+positives_by_isolate$`Proportion of Total Positives`[1:4] <- positives_by_isolate$Positives[1:4] / sum(positives_by_isolate$Positives[1:4]) 
+
+positives_by_isolate$`Proportion of Total Positives`[5:8] <- positives_by_isolate$Positives[5:8] / sum(positives_by_isolate$Positives[5:8]) 
+
+```
+
+##Plot dotplot 
+```{r}
+
+##color-code by source 
+positives_by_isolate$color <- NA
+positives_by_isolate$color <- ifelse(positives_by_isolate$Category == "Human", "#7AD151FF", positives_by_isolate$color)
+
+positives_by_isolate$color <- ifelse(positives_by_isolate$Category == "Domestic Animal", "#414487FF", positives_by_isolate$color)
+
+positives_by_isolate$color <- ifelse(positives_by_isolate$Category == "Environment", "#FDE725FF", positives_by_isolate$color)
+
+
+positives_by_isolate$color <- ifelse(positives_by_isolate$Category == "Food", "#22A884ff", positives_by_isolate$color)
+
+
+##plot 
+
+ggplot(positives_by_isolate, aes(x = `Proportion of Total Positives`, y = Level)) + geom_point(aes(colour = Category), size = 3, position = ggstance::position_dodgev(height=0.3)) + scale_color_manual(values = c( "#414487FF", "#FDE725FF","#22A884ff", "#7AD151FF")) +
+theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "black"), panel.grid.major.y = element_line(color = "grey"),
+ axis.line.x = element_line(color = "black"), panel.grid.major = element_line(color = "grey")) 
+
+
+```
+
