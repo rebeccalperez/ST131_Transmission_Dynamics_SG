@@ -1,0 +1,1266 @@
+---
+title: "ST131_Isolate_Density_By_Sample_Plots"
+author: "Rebecca Perez"
+date: "2024-07-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/FEB_ST131/Updated ST131 Code")
+library(ggplot2)
+library(patchwork)
+library(dplyr)
+library(ggridges)
+library(readxl)
+library(stringr)
+
+```
+
+##Load and format data for plotting -- create unique number for each household
+```{r}
+WC_metadata <- read.csv("ST131_metadata_isolate_cleaned.csv")
+
+load("Apr18_datafinal.Rdata")
+
+WC_metadata <- WC_metadata[WC_metadata$subject_type == "human",]
+
+families <- unique(WC_metadata$family_code)
+
+particinfo <- subset(MVdf, select = c("subject_code", "CORES2", "PERS2FIN"))
+
+particinfo <- particinfo[!duplicated(particinfo$subject_code),]  
+
+WC_metadata <- left_join(WC_metadata, particinfo, by = "subject_code")
+
+WC_metadata$famnum <- NA
+
+for(i in 1:nrow(WC_metadata)){
+  for (f in 1:length(families)){
+    if(WC_metadata$family_code[i] == families[f]){
+      WC_metadata$famnum[i] <- f
+    }
+  }
+}
+
+
+for (q in 1:length(families)){
+  nam <- paste("F", q, sep = ".")
+  assign(nam, WC_metadata[WC_metadata$family_code == families[q],])
+  
+}
+
+fam_vector <- "F.1"
+for (q in 1:length(families)){
+  fam1 <- paste("F", q, sep = ".")
+  fam_vector <- rbind(fam_vector, fam1)
+}
+
+fam_vector <- fam_vector[!duplicated(fam_vector)]
+
+
+```
+
+
+##Plot each family's sequence of samples with ST131 isolate density 
+
+```{r}
+
+####FAMILY 1 
+fam <- F.1
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(as.vector(fam$subgroup))
+
+if(grepl(groups,"PERS")){
+  colorvector <- c("grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam1_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 2 
+
+fam <- F.2
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam2_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 3
+
+fam <- F.3
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam3_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 4
+
+fam <- F.4
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam4_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 5 
+
+fam <- F.5
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+
+ggsave("Fam5_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 6 
+
+fam <- F.6
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam6_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 7 
+
+fam <- F.7
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam7_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 8
+
+fam <- F.8
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam8_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 9 
+
+fam <- F.9
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam9_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 10
+
+fam <- F.10
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam10_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+
+####Family 11 
+
+fam <- F.11
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam11_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 12 
+
+fam <- F.12
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam12_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 13 
+
+fam <- F.13
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam13_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 14 
+
+fam <- F.14
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam14_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 15 
+
+fam <- F.15
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam15_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 16 
+
+fam <- F.16
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam16_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 17
+
+fam <- F.17
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam17_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 18
+
+fam <- F.18
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam18_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 19
+
+fam <- F.19
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam19_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 20
+
+fam <- F.20
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam20_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 21
+
+fam <- F.21
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam21_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 22
+
+fam <- F.22
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam22_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 23
+
+fam <- F.23
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+sum(is.na(fam$barcolor)) ##problem is NAs! Figure out why 
+sum(is.na(fam$subgroup))
+sum(is.na(fam$wgs_st131)) ##NAs in wgs_st131!!! 
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+unique(fam$subgroup)
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam23_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 24
+
+fam <- F.24
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam24_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 25
+
+fam <- F.25
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam25_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 26
+
+fam <- F.26
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam26_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 27
+
+fam <- F.27
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam27_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 28
+
+fam <- F.28
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam28_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 29
+
+fam <- F.29
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam29_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 30
+
+fam <- F.30
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam30_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 31
+
+fam <- F.31
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam31_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 32
+
+fam <- F.32
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam32_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+####Family 33
+
+fam <- F.33
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam33_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+
+####Family 34
+
+fam <- F.34
+
+fam$Subject_ID <- paste0(fam$famnum, substr(fam$subject_code, nchar(fam$subject_code), nchar(fam$subject_code)))
+
+ordervector <- rev(unique(fam$Subject_ID))
+
+fam$Subject_ID <- factor(fam$Subject_ID, ordered = TRUE, levels = ordervector)
+fam$wgs_st131 <- ifelse(is.na(fam$wgs_st131), 0, fam$wgs_st131)
+
+fam$subgroup <- ifelse(fam$PERS2FIN == 1, "PERS", "NONCORES")
+fam$subgroup <- ifelse(fam$CORES2 == 1, "CORES", fam$subgroup)
+
+fam$barcolor <- ifelse(fam$subgroup == "PERS", "PERS", "NONPERS")
+fam$barcolor <- ifelse(fam$wgs_st131 > 0, paste0(fam$barcolor, "POS"), paste0(fam$barcolor, "NEG"))
+
+groups <- unique(fam$subgroup)
+groups <- ifelse(groups == "PERS", 1, 0)
+
+if(sum(groups) > 0){
+  colorvector <- c("grey", "black", "grey", "darkturquoise")
+} else{
+  colorvector <- c("grey", "black")
+}
+
+
+ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill = barcolor)) + scale_fill_manual(values = colorvector) +
+  theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
+        axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
+  ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+
+ggsave("Fam34_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
+
+```
+
