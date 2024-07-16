@@ -1,0 +1,277 @@
+---
+title: "Persister_Definition_Sens_Analysis"
+author: "Rebecca Perez"
+date: "2024-07-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(root.dir = "/Users/FEB_ST131/Updated ST131 Code")
+library(dplyr)
+library(rstan)
+library(forester)
+library(ggplot2)
+pars <- c("beta12", "beta21")
+```
+
+##Load data for MCMC with persistent carrier definition = 3 sequential timepoints 
+```{r}
+load("PERS3.indiv.model2.Rdata")
+
+beta21PERS3 <- unlist(rstan::extract(PERS3.indiv.model2, pars = 'beta21'))
+
+beta12PERS3 <- unlist(rstan::extract(PERS3.indiv.model2, pars = 'beta12'))
+
+pars <- c("beta12", "beta21")
+
+beta21PERS3 <- exp(beta21PERS3)
+PERS3carriageresults <- 1/beta21PERS3
+PERS3carriagemean <- median(PERS3carriageresults)
+PERS3carriagequantile <- quantile(PERS3carriageresults, prob=c(0.05,0.95))
+
+##Acquisition rate:
+
+PERS3acq <- exp(beta12PERS3)
+acqmeanPERS3 <- median(PERS3acq) ###-- .5% daily chance of acquisition 
+acqquantilePERS3 <- quantile(PERS3acq, prob = c(0.05, 0.95))
+
+###Coresidents###
+load('CORES3.indiv.model2.Rdata')
+
+beta21CORES3 <- unlist(rstan::extract(CORES3.indiv.model2, pars = 'beta21'))
+
+beta12CORES3 <- unlist(rstan::extract(CORES3.indiv.model2, pars = 'beta12'))
+
+beta21CORES3 <- exp(beta21CORES3)
+CORES3carriageresults <- 1/beta21CORES3
+CORES3carriagemean <- median(CORES3carriageresults)
+CORES3carriagequantile <- quantile(CORES3carriageresults, prob=c(0.05,0.95))
+
+##Acquisition rate:
+
+
+CORES3acq <- exp(beta12CORES3)
+acqmeanCORES3 <- median(CORES3acq)
+acqquantileCORES3 <- quantile(CORES3acq, prob = c(0.05, 0.95))
+
+
+
+#######All others########
+
+load("NONCORES3.indiv.model2.Rdata")
+pars <- c('beta12', 'beta21')
+
+beta21NONCORES3 <- unlist(rstan::extract(NONCORES3.indiv.model2, pars = 'beta21'))
+
+beta12NONCORES3 <- unlist(rstan::extract(NONCORES3.indiv.model2, pars = 'beta12'))
+
+
+beta21NONCORES3 <- exp(beta21NONCORES3)
+NONCORES3carriageresults <- 1/beta21NONCORES3
+NONCORES3carriagemean <- median(NONCORES3carriageresults)
+NONCORES3carriagequantile <- quantile(NONCORES3carriageresults, prob=c(0.05,0.95))
+
+##Acquisition rate:
+
+NONCORES3acq <- exp(beta12NONCORES3)
+NONCORES3acqmean <- median(NONCORES3acq) ###-- .5% daily chance of acquisition 
+NONCORES3acqquantile <- quantile(NONCORES3acq, prob = c(0.05, 0.95))
+
+```
+
+
+##Load data for MCMC with persistent carrier definition = 2 sequential timepoints 
+```{r}
+load('PERS2.indiv.model1.Rdata')
+
+beta21PERS <- unlist(rstan::extract(PERS2.indiv.model1, pars = 'beta21'))
+
+beta12PERS <- unlist(rstan::extract(PERS2.indiv.model1, pars = 'beta12'))
+
+
+##Carriage 
+
+beta21PERS <- exp(beta21PERS)
+PERScarriageresults <- 1/beta21PERS
+PERScarriagemean <- median(PERScarriageresults)
+PERScarriagequantile <- quantile(PERScarriageresults, prob=c(0.1,0.9))
+
+##Acquisition rate:
+
+
+PERSacq <- exp(beta12PERS)
+PERSacqmean <- median(PERSacq) ###-- .5% daily chance of acquisition 
+PERSacqquantile <- quantile(PERSacq, prob = c(0.1, 0.9))
+
+
+#########################Coresidents#####################################
+load('CORES2.indiv.model1.Rdata')
+
+beta21CORES <- unlist(rstan::extract(CORES2.indiv.model1, pars = 'beta21'))
+
+beta12CORES <- unlist(rstan::extract(CORES2.indiv.model1, pars = 'beta12'))
+
+####Carriage 
+
+beta21CORES <- exp(beta21CORES)
+COREScarriageresults <- 1/beta21CORES
+COREScarriagemean <- mean(COREScarriageresults)
+COREScarriagequantile <- quantile(COREScarriageresults, prob=c(0.05,0.95))
+
+
+##Acquisition rate:
+
+
+CORESacq <- exp(beta12CORES)
+CORESacqmean <- median(CORESacq) ###-- .5% daily chance of acquisition 
+CORESacqquantile <- quantile(CORESacq, prob = c(0.05, 0.95))
+
+
+
+#########################Others#####################################
+
+load("NONCORES2.indiv.model1.Rdata")
+
+beta21NONCORES <- unlist(rstan::extract(NONCORES2.indiv.model1, pars = 'beta21'))
+
+beta12NONCORES <- unlist(rstan::extract(NONCORES2.indiv.model1, pars = 'beta12'))
+
+
+beta21NONCORES <- exp(beta21NONCORES)
+NONCOREScarriageresults <- 1/beta21NONCORES
+NONCOREScarriagemean <- mean(NONCOREScarriageresults)
+NONCOREScarriagequantile <- quantile(NONCOREScarriageresults, prob=c(0.1,0.9))
+
+NONCORESacq <- exp(beta12NONCORES)
+NONCORESacqmean <- median(NONCORESacq) 
+NONCORESacqquantile <- quantile(NONCORESacq, prob = c(0.1, 0.9))
+
+```
+
+
+##Plot probability of acquisition 
+
+```{r}
+CrIAcq<- matrix(nrow = 6, ncol = 5, data = NA)
+CrIAcq[,1] <- c("Persistent carrier", "Coresident of persistent carrier", "All others")
+CrIAcq[1,2] <- median(PERSacq)
+interval80 <- quantile(PERSacq, prob = c(.1, .9))
+CrIAcq[1,3] <- interval80[1]
+CrIAcq[1,4] <- interval80[2]
+
+CrIAcq[2,2] <- median(CORESacq)
+interval80 <- quantile(CORESacq, prob = c(.1, .9))
+CrIAcq[2,3] <- interval80[1]
+CrIAcq[2,4] <- interval80[2]
+
+CrIAcq[3,2] <- median(NONCORESacq)
+interval80 <- quantile(NONCORESacq, prob = c(.1, .9))
+CrIAcq[3,3] <- interval80[1]
+CrIAcq[3,4] <- interval80[2]
+
+#####3 sequential timepoints 
+
+CrIAcq[4,2] <- median(PERS3acq)
+interval80 <- quantile(PERS3acq, prob = c(.1, .9))
+CrIAcq[4,3] <- interval80[1]
+CrIAcq[4,4] <- interval80[2]
+
+CrIAcq[5,2] <- median(CORES3acq)
+interval80 <- quantile(CORES3acq, prob = c(.1, .9))
+CrIAcq[5,3] <- interval80[1]
+CrIAcq[5,4] <- interval80[2]
+
+CrIAcq[6,2] <- median(NONCORES3acq)
+interval80 <- quantile(NONCORES3acq, prob = c(.1, .9))
+CrIAcq[6,3] <- interval80[1]
+CrIAcq[6,4] <- interval80[2]
+
+
+colnames(CrIAcq) <- c("Group", "Median", "Lower", "Upper", "Definition")
+
+CrIAcq <- as.data.frame(CrIAcq)
+
+CrIAcq[,2] <- as.numeric(CrIAcq[,2])
+CrIAcq[,3] <- as.numeric(CrIAcq[,3])
+CrIAcq[,4] <- as.numeric(CrIAcq[,4])
+
+CrIAcq[,2] <- round(CrIAcq[,2], digits = 4)
+CrIAcq[,3] <- round(CrIAcq[,3], digits = 4)
+CrIAcq[,4] <- round(CrIAcq[,4], digits = 4)
+
+CrIAcq$Definition[1:3] <- "2 sequential timepoints"
+CrIAcq$Definition[4:6] <- "3 sequential timepoints"
+
+library(ggstance)
+
+ggplot(CrIAcq, aes(x=Median, y = Group, color = Definition)) + geom_errorbar(aes(xmin = Lower, xmax = Upper, color = Definition), width = 0.2, size = 1.2, position = ggstance::position_dodgev(height= 0.3)) +
+  scale_color_manual(values = c("#22A884FF", "black")) + geom_point(aes(color = Definition),  pch = 16, size =3,position = ggstance::position_dodgev(height= 0.3)) +
+  ggtitle("Sensitivity of Daily Probability of Acquisition Estimates") + theme(panel.background = element_blank(), panel.border = element_rect(fill = NA), panel.grid.major.x = element_line(color = "grey"))+
+  xlab("") + ylab("")
+
+```
+
+
+##Plot duration of carriage 
+
+```{r}
+CrICar <- as.data.frame(matrix(data = NA, nrow = 3, ncol = 5))
+
+colnames(CrICar) <- c("Median", "Lower", "Upper", "Group", "Definition")
+
+CrICar[1,1] <- PERScarriagemean
+CrICar[1,2] <- PERScarriagequantile[1]
+CrICar[1,3] <- PERScarriagequantile[2]
+CrICar[1,4] <- "Persistent carrier"
+
+
+CrICar[2,1] <- COREScarriagemean
+CrICar[2,2] <- COREScarriagequantile[1]
+CrICar[2,3] <- COREScarriagequantile[2]
+CrICar[2,4] <- "Coresident of persistent carrier"
+
+CrICar[3,1] <- NONCOREScarriagemean
+CrICar[3,2] <- NONCOREScarriagequantile[1]
+CrICar[3,3] <- NONCOREScarriagequantile[2]
+CrICar[3,4] <- "All others"
+
+####3 sequential timepoints
+
+CrICar[4,1] <- PERS3carriagemean
+CrICar[4,2] <- PERS3carriagequantile[1]
+CrICar[4,3] <- PERS3carriagequantile[2]
+CrICar[4,4] <- "Persistent carrier"
+
+
+CrICar[5,1] <- CORES3carriagemean
+CrICar[5,2] <- CORES3carriagequantile[1]
+CrICar[5,3] <- CORES3carriagequantile[2]
+CrICar[5,4] <- "Coresident of persistent carrier"
+
+CrICar[6,1] <- NONCORES3carriagemean
+CrICar[6,2] <- NONCORES3carriagequantile[1]
+CrICar[6,3] <- NONCORES3carriagequantile[2]
+CrICar[6,4] <- "All others"
+
+CrICar[1:3,5] <- "2 sequential timepoints" 
+
+CrICar[4:6,5] <- "3 sequential timepoints" 
+
+CrICar[,1] <- as.numeric(CrICar[,1])
+CrICar[,2] <- as.numeric(CrICar[,2])
+CrICar[,3] <- as.numeric(CrICar[,3])
+
+CrICar[,1] <- round(CrICar[,1], digits = 2)
+CrICar[,2] <- round(CrICar[,2], digits = 2)
+CrICar[,3] <- round(CrICar[,3], digits = 2)
+
+ggplot(CrICar, aes(x=Median, y = Group, color = Definition)) + geom_errorbar(aes(xmin = Lower, xmax = Upper, color = Definition), width = 0.2, size = 1.2, position = ggstance::position_dodgev(height= 0.3)) +
+  scale_color_manual(values = c("#22A884FF", "black")) + geom_point(aes(color = Definition), pch = 16, size =3,  position = ggstance::position_dodgev(height= 0.3)) +
+  ggtitle("Sensitivity of Carriage Duration Estimates") + theme(panel.background = element_blank(), panel.border = element_rect(fill = NA), panel.grid.major.x = element_line(color = "grey"))+
+  xlab("") + ylab("") + scale_x_continuous(trans = "log10")
+
+
+```
+
