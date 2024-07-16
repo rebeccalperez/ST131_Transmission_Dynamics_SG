@@ -1,0 +1,136 @@
+---
+title: "2-State_MCMC_Results_Plots_(By_Clade)"
+author: "Rebecca Perez"
+date: "2024-07-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(root.dir = "/Users/FEB_ST131/Updated ST131 Code")
+library(dplyr)
+library(rstan)
+library(forester)
+library(ggplot2)
+pars <- c("beta12", "beta21")
+```
+
+##Load stan results for Clade C 
+```{r}
+load('CladeC.indiv.modelV2.Rdata')
+
+##extract parameters 
+beta21_cladeC <- unlist(rstan::extract(CladeC.indiv.modelV2, pars = 'beta21'))
+beta12_cladeC <- unlist(rstan::extract(CladeC.indiv.modelV2, pars = 'beta12'))
+
+##check model fit diagnostics 
+traceplot(CladeC.indiv.modelV2, pars = pars)
+check_hmc_diagnostics(CladeC.indiv.modelV2) 
+stan_dens(CladeC.indiv.modelV2, pars = pars)
+
+
+##Carriage 
+
+beta21_cladeC <- exp(beta21_cladeC)
+carriageresults_cladeC <- 1/beta21_cladeC
+CladeC_carriagemean <- median(carriageresults_cladeC)
+CladeC_carriagequantile <- quantile(carriageresults_cladeC, prob=c(0.1,0.9))
+
+##Acquisition rate:
+beta12_cladeC <- exp(beta12_cladeC)
+CladeC_acqmean <- median(beta12_cladeC)
+CladeC_acqquantile <- quantile(beta12_cladeC, prob = c(0.1,0.9))
+
+
+```
+
+##Load stan results for Clade A 
+```{r}
+load("CladeA.indiv.modelV2.Rdata")
+
+##extract parameters 
+beta21_cladeA <- unlist(rstan::extract(CladeA.indiv.modelV2, pars = 'beta21'))
+beta12_cladeA <- unlist(rstan::extract(CladeA.indiv.modelV2, pars = 'beta12'))
+
+
+##check model fit diagnostics 
+traceplot(CladeA.indiv.modelV2, pars = pars)
+check_hmc_diagnostics(CladeA.indiv.modelV2) 
+stan_dens(CladeA.indiv.modelV2, pars = pars)
+
+
+##Carriage 
+
+beta21_cladeA <- exp(beta21_cladeA)
+carriageresults_cladeA <- 1/beta21_cladeA
+CladeA_carriagemean <- median(carriageresults_cladeA)
+CladeA_carriagequantile <- quantile(carriageresults_cladeA, prob=c(0.1,0.9))
+
+##Acquisition rate:
+beta12_cladeA <- exp(beta12_cladeA)
+CladeA_acqmean <- median(beta12_cladeA)
+CladeA_acqquantile <- quantile(beta12_cladeA, prob = c(0.1,0.9))
+
+
+```
+
+##Plot probability of acquisition 
+```{r}
+CladeAcq<- matrix(nrow = 2, ncol = 4, data = NA)
+CladeAcq[1:2,1] <- c("Clade A", "Clade C")
+CladeAcq[1,2] <- CladeA_acqmean
+CladeAcq[1,3] <- CladeA_acqquantile[1]
+CladeAcq[1,4] <- CladeA_acqquantile[2]
+
+CladeAcq[2,2] <- CladeC_acqmean
+CladeAcq[2,3] <- CladeC_acqquantile[1]
+CladeAcq[2,4] <- CladeC_acqquantile[2]
+
+colnames(CladeAcq) <- c("Clade", "Median", "Lower", "Upper")
+
+CladeAcq <- as.data.frame(CladeAcq)
+CladeAcq[,2] <- as.numeric(CladeAcq[,2])
+CladeAcq[,3] <- as.numeric(CladeAcq[,3])
+CladeAcq[,4] <- as.numeric(CladeAcq[,4])
+
+CladeAcq[,2] <- round(CladeAcq[,2], digits = 4)
+CladeAcq[,3] <- round(CladeAcq[,3], digits = 4)
+CladeAcq[,4] <- round(CladeAcq[,4], digits = 4)
+
+forester(CladeAcq[,c(2,1)], CladeAcq[,2], CladeAcq[,3], CladeAcq[,4], ci_sep = " - ", null_line_at = 0, estimate_precision = 4, estimate_col_name = "Median Probability of Acquisition [80% CrI]", file_path = "/Users/lynnperez/Downloads/V3_Clade_Acq_Forest_Plot.png", nudge_width = -0.5, font_family = "Arial", x_scale_linear=TRUE, xlim = c(0.000, 0.01), xbreaks = seq(0.000, 0.01, by = 0.005), stripe_colour = "white", point_sizes = 2)
+
+
+```
+
+##Plot duration of carriage 
+
+```{r}
+
+CladeCar<- matrix(nrow = 2, ncol = 4, data = NA)
+CladeCar[1:2,1] <- c("Clade A", "Clade C")
+CladeCar[1,2] <- CladeA_carriagemean
+CladeCar[1,3] <- CladeA_carriagequantile[1]
+CladeCar[1,4] <- CladeA_carriagequantile[2]
+
+CladeCar[2,2] <- median(CladeC_carriagemean)
+CladeCar[2,3] <- CladeC_carriagequantile[1]
+CladeCar[2,4] <- CladeC_carriagequantile[2]
+
+colnames(CladeCar) <- c("Clade", "Median", "Lower", "Upper")
+
+CladeCar <- as.data.frame(CladeCar)
+CladeCar[,2] <- as.numeric(CladeCar[,2])
+CladeCar[,3] <- as.numeric(CladeCar[,3])
+CladeCar[,4] <- as.numeric(CladeCar[,4])
+
+CladeCar[,2] <- round(CladeCar[,2], digits = 3)
+CladeCar[,3] <- round(CladeCar[,3], digits = 3)
+CladeCar[,4] <- round(CladeCar[,4], digits = 3)
+
+library(forester)
+
+forester(CladeCar[,c(2,1)], CladeCar[,2], CladeCar[,3], CladeCar[,4], ci_sep = " - ", null_line_at = 0, estimate_precision = 2, estimate_col_name = "Median Carriage Duration [80% CrI]", file_path = "/Users/lynnperez/Downloads/V3_Clade_Carriage_Forest_Plot.png", nudge_width = -0.5, font_family = "Arial", x_scale_linear=TRUE, stripe_colour = "white", point_sizes = 2)
+
+```
+
