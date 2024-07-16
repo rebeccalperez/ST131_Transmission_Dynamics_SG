@@ -1,0 +1,173 @@
+---
+title: "AMR_Phenotype_Heatmap"
+author: "Rebecca Perez"
+date: "2024-07-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/FEB_ST131/Updated ST131 Code")
+library(ggplot2)
+library(tidyr)
+library(tibble)
+library(reshape2)
+library(reshape)
+library(dplyr)
+```
+
+##Load and format data 
+```{r}
+load("AMR_count_table.Rdata")
+load("phenot_short.Rdata")
+
+HTC_clades <- read.csv("ST131_WGSsubset_13May24_metadata_edit.csv")
+
+WC_metadata <- read.csv("ST131_metadata_isolate_cleaned.csv")
+
+cladeinfo <- subset(HTC_clades, select = c("isolate_accession", "clade_ST131typer"))
+
+ST131pos_info <- subset(WC_metadata, select = c("isolate_accession", "wgs_st131", "wgs_species"))
+
+phenot_short <- left_join(phenot_short, cladeinfo, by = "isolate_accession")
+
+phenot_short <- left_join(phenot_short, ST131pos_info, by = "isolate_accession")
+
+##combine subclades of C 
+phenot_short$clade_ST131typer <- ifelse(phenot_short$clade_ST131typer == "C1-M27" | phenot_short$clade_ST131typer == "C2", "C", phenot_short$clade_ST131typer)
+
+##Subset for each clade and non-ST131 e. coli 
+phenotC_short <- phenot_short[phenot_short$clade_ST131typer == "C" & !is.na(phenot_short$clade_ST131typer),]
+phenotA_short <- phenot_short[phenot_short$clade_ST131typer== "A" & !is.na(phenot_short$clade_ST131typer),]
+phenotB_short <- phenot_short[phenot_short$clade_ST131typer == "B1" & !is.na(phenot_short$clade_ST131typer),]
+phenotecoli_short <- phenot_short[phenot_short$wgs_st131.y == 0 & !is.na(phenot_short$wgs_species) & phenot_short$`phenot$wgs_species` == "ecoli",]
+
+```
+
+##Combine antimicrobials by class 
+```{r}
+AMR_classes <- as.data.frame(AMR_count_table[1:4,])
+
+for (i in 1:4){
+  AMR_classes$Aminoglycosides[i] <- as.numeric(sum(AMR_classes$`Amikacin Interpretation`[i], AMR_classes$`Gentamicin Interpretation`[i], AMR_classes$`Tobramycin Interpretation`[i])) 
+}
+
+AMR_classes$Monobactams <- as.numeric(AMR_classes$`Aztreonam Interpretation`)
+
+AMR_classes$Carbapenems <- NA
+for (i in 1:4){
+  AMR_classes$Carbapenems[i] <- as.numeric(sum(AMR_classes$`Doripenem Interpretation`[i], AMR_classes$`Ertapenem Interpretation`[i], AMR_classes$`Meropenem Interpretation`[i], AMR_classes$`Imipenem Interpretation`[i])) 
+}
+
+
+AMR_classes$'Second-Gen Cephalosporins' <- NA
+for (i in 1:4){
+  AMR_classes$'Second-Gen Cephalosporins'[i] <- as.numeric(sum(AMR_classes$`Cefuroxime Interpretation`[i], AMR_classes$`Cefoxitin Interpretation`[i]))
+  
+}
+
+AMR_classes$'Third-Gen Cephalosporins' <- NA
+for (i in 1:4){
+  AMR_classes$'Third-Gen Cephalosporins'[i] <- as.numeric(sum(AMR_classes$`Cefotaxime Interpretation`[i], AMR_classes$`Ceftazidime Interpretation`[i]))
+  
+}
+
+AMR_classes$'Fourth-Gen Cephalosporins' <- NA
+for (i in 1:4){
+  AMR_classes$'Fourth-Gen Cephalosporins'[i] <- as.numeric(sum(AMR_classes$`Cefepime Interpretation`[i]))
+  
+}
+
+
+AMR_classes$Fluoroquinolones <- NA
+
+
+for (i in 1:4){
+  AMR_classes$Fluoroquinolones[i] <- as.numeric(sum(AMR_classes$`Ciprofloxacin Interpretation`[i], AMR_classes$`Norfloxacin Interpretation`[i], AMR_classes$`Levofloxacin Interpretation`[i]))
+}
+
+AMR_classes$Tetracyclines <- NA
+
+for (i in 1:4){
+  
+  AMR_classes$Tetracyclines[i] <- as.numeric(sum(AMR_classes$`Tetracycline Interpretation`[i], AMR_classes$`Minocycline Interpretation`[i]))
+}
+
+
+AMR_classes$Penicillins <- NA
+
+for (i in 1:4){
+  
+  AMR_classes$Penicillins[i] <- as.numeric(sum(AMR_classes$`Piperacillin Interpretation`[i], AMR_classes$`Ampicillin Interpretation`[i]))
+  
+}
+
+
+
+AMR_classes$Glycylcyclines <- AMR_classes$`Tigecycline Interpretation`
+
+AMR_classes$Sulfonamides <- AMR_classes$`Trimeth/Sulfa Interpretation`
+
+
+for (i in 1:4){
+AMR_classes$'BL-BLI'[i] <- as.numeric(sum(AMR_classes$`Pip/Tazo Interpretation`[i], AMR_classes$`Amp/Sulbactam Interpretation`[i], AMR_classes$`Ceftazidime/K Clavulanate Interpretation`[i], AMR_classes$`Cefotaxime/K Clavulanate Interpretation`[i], AMR_classes$`Amox/K Clav Interpretation`[i]))
+}
+
+AMR_classshort <- AMR_classes[,c(35:46)]
+
+
+Ctotal <- as.numeric(sum(phenot_short$clade_ST131typer[!is.na(phenot_short$clade_ST131typer)] == "C"))
+Atotal <- as.numeric(sum(phenot_short$clade_ST131typer[!is.na(phenot_short$clade_ST131typer)] == "A"))
+Btotal <- as.numeric(sum(phenot_short$clade_ST131typer[!is.na(phenot_short$clade_ST131typer)] == "B1"))
+nonST131total<- as.numeric(nrow(phenotecoli_short[!is.na(phenotecoli_short$`Extended Spectrum Beta-Lactamase`),]))
+
+ABsperClass <- c(3, 1, 4, 5, 3, 2, 2, 1, 2, 1, 1, 5)  ## number of antibiotics grouped together per category 
+
+
+##calculate proportion of isolates with resistance to each class 
+for (i in 1:12){
+  
+  AMR_classshort[1,i] <- AMR_classshort[1, i] / (Ctotal * ABsperClass[i]) 
+  AMR_classshort[2,i] <- AMR_classshort[2, i] / (Atotal * ABsperClass[i]) 
+  AMR_classshort[3,i] <- AMR_classshort[3, i] / (Btotal * ABsperClass[i])
+  AMR_classshort[4,i] <- AMR_classshort[4, i] / (nonST131total * ABsperClass[i])
+  
+}
+
+
+category <- AMR_classshort
+```
+
+##Plot heatmap 
+
+```{r}
+
+plot <- data.matrix(category)
+
+rownames(plot) <- c("ST131 Clade C (n = 108)", "ST131 Clade A (n = 87)", "ST131 Clade B (n = 17)", "non-ST131 (n = 148)")
+
+plot2 <- melt.matrix(plot, id = dimnames(plot), as.is = TRUE)
+
+colnames(plot2) <- c("Species_Clade", "Antibiotic_Class", "Proportion Resistant")
+
+breaks <- c(seq(0,1, by = .2))
+
+
+classplotting <- plot2
+
+classplotting$labelsFORMATTED <- sprintf("%.2f", round(classplotting$`Proportion Resistant`, 2))
+
+classplotting$labelsFORMATTED <- ifelse(classplotting$`Proportion Resistant` < 0.01, "<0.01", classplotting$labelsFORMATTED)
+
+classplotting <- classplotting[classplotting$Antibiotic_Class != "Glycylcyclines",]
+
+classplotting$labelsFORMATTED <- ifelse(is.na(classplotting$`Proportion Resistant`), "<0.01", classplotting$labelsFORMATTED)
+
+
+classplotting$`Proportion Resistant` <- ifelse(is.na(classplotting$`Proportion Resistant`), 0, classplotting$`Proportion Resistant`)
+
+pgrid <- ggplot(classplotting, aes(x = Species_Clade, y = Antibiotic_Class)) + geom_tile(aes(x = Species_Clade, y = Antibiotic_Class, fill = `Proportion Resistant`)) + scale_fill_viridis_b(breaks = breaks, na.value = "white") + xlab("E. Coli Isolate Sequence Type (ST) and Clade") + ylab("") + theme(legend.position = "top", legend.title = element_text(size = 10), legend.text = element_text(size = 8), legend.title.align = .0001, axis.ticks = element_blank(), axis.title = element_text(size = 15),  axis.title.x = element_text(margin=margin(t=20)), panel.background = element_blank()) +geom_text(aes(label= as.character(labelsFORMATTED)), color = ifelse(classplotting$`Proportion Resistant` > .8, "black", "white")) #,  panel.grid = element_line(color = "lightgrey"))
+
+pgrid
+```
+
