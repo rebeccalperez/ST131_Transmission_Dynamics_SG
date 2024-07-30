@@ -9,10 +9,12 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = "/Users/FEB_ST131/Updated ST131 Code")
 
+library(dplyr)
 
 setwd("/Users/FEB_ST131/Updated ST131 Code")
 load("Apr18_datafinal.Rdata")
 WC_metadata <- read.csv("ST131_metadata_isolate_cleaned.csv")
+
 
 ```
 
@@ -395,9 +397,9 @@ univalues2[8,2] <- obj[2,2]
 univalues2[8,7] <- obj[2,4]
 
 
-univalues2[,3] <- exp(univalues[,1])
+univalues2[,3] <- exp(univalues2[,1])
 univalues2[,4] <- exp(univalues2[,1]-1.96*univalues2[,2])
-univalues[,5] <- exp(univalues[,1]+1.96*univalues[,2])
+univalues2[,5] <- exp(univalues2[,1]+1.96*univalues2[,2])
 
 
 univalues2 <- univalues2[,3:7]
@@ -406,14 +408,14 @@ univalues2 <- univalues2[,3:7]
 ##Plotting univariate results 
 ```{r}
 
-colnames(univalues) <- c("OR", "Lower", "Upper", "Index", "P value")
+colnames(univalues2) <- c("OR", "Lower", "Upper", "Index", "P value")
 
 
 Covnames <- as.data.frame(c("Comorbidity", "Incontinence", "Sex (Female)", "Hospital stay within past year", "Medical devices", "Age", ">30 hours at home per week", "Antibiotic use within past six months"))
 
 colnames(Covnames) <- "Covariate"
 
-univalues <- cbind(univalues, Covnames)
+univalues <- cbind(univalues2, Covnames)
 
 univalues$Index <- seq(1,8, by = 1)
 
