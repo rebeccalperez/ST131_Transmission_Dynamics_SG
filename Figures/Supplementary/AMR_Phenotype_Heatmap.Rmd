@@ -40,7 +40,7 @@ phenot_short$clade_ST131typer <- ifelse(phenot_short$clade_ST131typer == "C1-M27
 phenotC_short <- phenot_short[phenot_short$clade_ST131typer == "C" & !is.na(phenot_short$clade_ST131typer),]
 phenotA_short <- phenot_short[phenot_short$clade_ST131typer== "A" & !is.na(phenot_short$clade_ST131typer),]
 phenotB_short <- phenot_short[phenot_short$clade_ST131typer == "B1" & !is.na(phenot_short$clade_ST131typer),]
-phenotecoli_short <- phenot_short[phenot_short$wgs_st131.y == 0 & !is.na(phenot_short$wgs_species) & phenot_short$`phenot$wgs_species` == "ecoli",]
+phenotecoli_short <- phenot_short[phenot_short$wgs_st131.y == 0 & phenot_short$`wgs_species` == "ecoli",]
 
 ```
 
@@ -115,6 +115,7 @@ AMR_classes$'BL-BLI'[i] <- as.numeric(sum(AMR_classes$`Pip/Tazo Interpretation`[
 
 AMR_classshort <- AMR_classes[,c(35:46)]
 
+load("/Users/FEB_ST131/AMR_Phenotype_by_AB_Class.Rdata")
 
 Ctotal <- as.numeric(sum(phenot_short$clade_ST131typer[!is.na(phenot_short$clade_ST131typer)] == "C"))
 Atotal <- as.numeric(sum(phenot_short$clade_ST131typer[!is.na(phenot_short$clade_ST131typer)] == "A"))
@@ -135,16 +136,172 @@ for (i in 1:12){
 }
 
 
-category <- AMR_classshort
+#AMR_classshort
+```
+
+##check multidrug resistance 
+
+```{r}
+
+
+for(q in 1:ncol(phenot_short)){
+phenot_short[,q] <- ifelse(is.na(phenot_short[,q]), "no_info", phenot_short[,q])
+}
+
+category <- phenot_short 
+
+category$Amino <- NA
+
+for(i in 1:nrow(category)){
+category$Amino[i] <- if(phenot_short$`Amikacin Interpretation`[i] == "R" | phenot_short$`Amikacin Interpretation`[i] == "R*" | phenot_short$`Gentamicin Interpretation`[i] == "R" | phenot_short$`Gentamicin Interpretation`[i] == "R*" | phenot_short$`Tobramycin Interpretation`[i] == "R"| phenot_short$`Tobramycin Interpretation`[i] == "R*") {
+ category$Amino[i] <- 1 
+}else {
+  category$Amino[i] <- 0 
+}
+}
+
+
+##can leave Monobactams as is 
+
+category$Mono <- ifelse(category$`Aztreonam Interpretation` == "ESBL", 1, 0)
+
+###carbapenems 
+
+category$Carb <- NA
+
+for(i in 1:nrow(category)){
+
+if(phenot_short$`Doripenem Interpretation`[i] == "R" | phenot_short$`Doripenem Interpretation`[i] == "ESBL" | phenot_short$`Doripenem Interpretation`[i] == "R*" | phenot_short$`Ertapenem Interpretation`[i] == "R" | phenot_short$`Ertapenem Interpretation`[i] == "ESBL" | phenot_short$`Ertapenem Interpretation`[i] == "R*" | phenot_short$`Meropenem Interpretation`[i] == "R" | phenot_short$`Meropenem Interpretation`[i] == "R*" | phenot_short$`Meropenem Interpretation`[i]== "ESBL"| phenot_short$`Imipenem Interpretation`[i] == "R" | phenot_short$`Imipenem Interpretation`[i] == "R*" | phenot_short$`Imipenem Interpretation`[i] == "ESBL"){
+  category$Carb[i]<- 1
+}else{
+  category$Carb[i] <- 0
+}
+}
+
+
+category$Ceph2 <- NA
+
+##Cephalosporins ###
+
+for(i in 1:nrow(category)){
+  if(category$`Cefuroxime Interpretation`[i] == "R" | category$`Cefuroxime Interpretation`[i] == "R*" | category$`Cefuroxime Interpretation`[i] == "ESBL"| category$`Cefoxitin Interpretation`[i] == "R" | category$`Cefoxitin Interpretation`[i] == "R*" | category$`Cefoxitin Interpretation`[i] == "ESBL"){
+    category$Ceph2[i] <- 1
+  }else{
+    category$Ceph2[i] <- 0
+  }
+}
+
+category$Ceph3 <- NA
+
+for(i in 1:nrow(category)){
+  if(category$`Cefotaxime Interpretation`[i] == "R" | category$`Cefotaxime Interpretation`[i] == "R*" | category$`Cefotaxime Interpretation`[i] == "ESBL"|category$`Ceftazidime Interpretation`[i] == "R" | category$`Ceftazidime Interpretation`[i] == "R*" | category$`Ceftazidime Interpretation`[i] == "ESBL"){
+    category$Ceph3[i] <- 1
+  }else{
+    category$Ceph3[i] <- 0
+  }
+}
+
+category$Ceph4 <- NA
+
+for(i in 1:nrow(category)){
+if(category$`Cefepime Interpretation`[i] == "R" | category$`Cefepime Interpretation`[i]== "R*" | category$`Cefepime Interpretation`[i] == "ESBL"){
+  category$Ceph4[i] <- 1
+}else{
+  category$Ceph4[i] <- 0
+}
+}
+
+
+
+###FLUOROQUINOLONES 
+
+category$Fluoro <- NA
+
+for(i in 1:nrow(category)){
+  if(category$`Ciprofloxacin Interpretation`[i] == "R" | category$`Ciprofloxacin Interpretation`[i]== "R*" | category$`Ciprofloxacin Interpretation`[i] == "ESBL" | category$`Levofloxacin Interpretation`[i] == "R" | category$`Levofloxacin Interpretation`[i] == "R*" | category$`Levofloxacin Interpretation`[i] == "ESBL"){
+    category$Fluoro[i] <- 1
+  }else{
+    category$Fluoro[i] <- 0
+  }
+}
+
+
+####Tetracyclines 
+
+category$Tetra <- NA
+  
+for(i in 1:nrow(category)){
+  if(category$`Tetracycline Interpretation`[i] == "R" | category$`Tetracycline Interpretation`[i]== "R*" | category$`Tetracycline Interpretation`[i] == "ESBL" | category$`Minocycline Interpretation`[i] == "R" | category$`Minocycline Interpretation`[i] == "R*" | category$`Minocycline Interpretation`[i] == "ESBL"){
+    category$Tetra[i] <- 1
+  }else{
+    category$Tetra[i] <- 0 
+  }
+}
+
+
+###Penicillins 
+
+category$Penic <- NA
+
+for(i in 1:nrow(category)){
+  if(category$`Piperacillin Interpretation`[i] == "R" | category$`Piperacillin Interpretation`[i]== "R*" | category$`Piperacillin Interpretation`[i] == "ESBL" | category$`Ampicillin Interpretation`[i] == "R" | category$`Ampicillin Interpretation`[i]== "R*" | category$`Ampicillin Interpretation`[i] == "ESBL"){
+    category$Penic[i] <- 1
+  }else{
+     category$Penic[i] <- 0
+  }
+}
+
+category$Glyc <- NA
+for(i in 1:nrow(category)){
+ if(category$`Tigecycline Interpretation`[i] == "R"){
+   category$Glyc[i] <- 1
+ }else{
+   category$Glyc[i] <- 0
+ }
+}
+
+category$Sulf <- NA
+for(i in 1:nrow(category)){
+if(category$`Trimeth/Sulfa Interpretation`[i]=="R"){
+  category$Sulf[i]<-1
+}else{
+  category$Sulf[i] <- 0 
+}
+}
+
+category$'BL-BLI' <- NA
+
+for (i in 1:nrow(category)){
+if(category$`Pip/Tazo Interpretation`[i] == "R"|category$`Amp/Sulbactam Interpretation`[i] == "R"|category$`Ceftazidime/K Clavulanate Interpretation`[i] == "R"|category$`Cefotaxime/K Clavulanate Interpretation`[i]=="R"| category$`Amox/K Clav Interpretation`[i] == "R"){
+ category$'BL-BLI'[i] <- 1
+} else{
+category$'BL-BLI'[i] <- 0
+}
+}
+
+for(i in 1:nrow(category)){
+category$MDR[i] <- sum(category[i,59:67])
+}
+
+table(category$MDR)
+
+category$MoreThan2 <- ifelse(category$MDR > 2, 1, 0)
+
+table(category$MoreThan2, category$clade_ST131typer)
+
+Ecoli <- category[category$wgs_species == "ecoli",]
+table(Ecoli$MoreThan2, Ecoli$wgs_st131.y)
+
+ 
 ```
 
 ##Plot heatmap 
 
 ```{r}
 
-plot <- data.matrix(category)
+plot <- data.matrix(AMR_classshort)
 
-rownames(plot) <- c("ST131 Clade C (n = 108)", "ST131 Clade A (n = 87)", "ST131 Clade B (n = 17)", "non-ST131 (n = 148)")
+rownames(plot) <- c("ST131 Clade C (n = 108)", "ST131 Clade A (n = 87)", "ST131 Clade B (n = 17)", "non-ST131 (n = 333)")
 
 plot2 <- melt.matrix(plot, id = dimnames(plot), as.is = TRUE)
 
@@ -166,7 +323,7 @@ classplotting$labelsFORMATTED <- ifelse(is.na(classplotting$`Proportion Resistan
 
 classplotting$`Proportion Resistant` <- ifelse(is.na(classplotting$`Proportion Resistant`), 0, classplotting$`Proportion Resistant`)
 
-pgrid <- ggplot(classplotting, aes(x = Species_Clade, y = Antibiotic_Class)) + geom_tile(aes(x = Species_Clade, y = Antibiotic_Class, fill = `Proportion Resistant`)) + scale_fill_viridis_b(breaks = breaks, na.value = "white") + xlab("E. Coli Isolate Sequence Type (ST) and Clade") + ylab("") + theme(legend.position = "top", legend.title = element_text(size = 10), legend.text = element_text(size = 8), legend.title.align = .0001, axis.ticks = element_blank(), axis.title = element_text(size = 15),  axis.title.x = element_text(margin=margin(t=20)), panel.background = element_blank()) +geom_text(aes(label= as.character(labelsFORMATTED)), color = ifelse(classplotting$`Proportion Resistant` > .8, "black", "white")) #,  panel.grid = element_line(color = "lightgrey"))
+pgrid <- ggplot(classplotting, aes(x = Species_Clade, y = Antibiotic_Class)) + geom_tile(aes(x = Species_Clade, y = Antibiotic_Class, fill = `Proportion Resistant`)) + scale_fill_viridis_b(breaks = breaks, na.value = "white") +  ylab("") + xlab("") + theme(legend.position = "top", legend.title = element_text(size = 10), legend.text = element_text(size = 8), legend.title.align = .0001, axis.ticks = element_blank(), axis.title = element_text(size = 15),  axis.title.x = element_text(margin=margin(t=20)), panel.background = element_blank()) +geom_text(aes(label= as.character(labelsFORMATTED)), color = ifelse(classplotting$`Proportion Resistant` > .8, "black", "white")) #,  panel.grid = element_line(color = "lightgrey"))
 
 pgrid
 ```
