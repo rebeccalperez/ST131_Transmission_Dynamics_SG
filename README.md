@@ -10,8 +10,9 @@ multivariate analysis of risk factors associated with *E. coli* ST131 carriage a
 ## Main analysis: 
 ### [Regression analysis](https://github.com/rebeccalperez/ST131_Transmission_Dynamics_SG/blob/main/ST131_Multivariate_Univariate_Regression_Analysis.Rmd) 
 ### [MCMC models: data formatting and runcode](https://github.com/rebeccalperez/ST131_Transmission_Dynamics_SG/blob/main/2-State_MCMC_Runcode.Rmd)
-### [MCMC stan models for all participants](https://github.com/rebeccalperez/ST131_Transmission_Dynamics_SG/blob/main/Two_State_MCMC_T10.stan)
-### [MCMC stan model for persistent carrier subset](https://github.com/rebeccalperez/ST131_Transmission_Dynamics_SG/blob/main/Two_State_MCMC_T5.stan)
+### [MCMC stan models:]
+### [For large sample size subgroups (10 timesteps)](https://github.com/rebeccalperez/ST131_Transmission_Dynamics_SG/blob/main/Two_State_MCMC_T10.stan)
+### [For persistent carrier subgroup (5 timesteps)](https://github.com/rebeccalperez/ST131_Transmission_Dynamics_SG/blob/main/Two_State_MCMC_T5.stan)
 
 ## Figure generation: 
 ### [Fig 2: ST131 density](https://github.com/rebeccalperez/ST131_Transmission_Dynamics_SG/blob/main/Figures/ST131_Isolate_Density_By_Sample_Plots.Rmd) 
