@@ -18,7 +18,7 @@ multivariate analysis of risk factors associated with *E. coli* ST131 carriage a
 ### [Fig 3: MCMC results](https://github.com/rebeccalperez/ST131_Transmission_Dynamics_SG/tree/main/Plots/MCMC_Results) 
 
 ## Supplementary analyses and figures:
-### [S1:Sensitivity analysis](https://github.com/rebeccalperez/ST131_Transmission_Dynamics_SG/blob/main/Figures/Supplementary/Persistent_Carrier_Sens_Analysis.Rmd)
+### [S1: Sensitivity analysis](https://github.com/rebeccalperez/ST131_Transmission_Dynamics_SG/blob/main/Figures/Supplementary/Persistent_Carrier_Sens_Analysis.Rmd)
 ### [S2: Hidden Markov model](https://github.com/rebeccalperez/ST131_Transmission_Dynamics_SG/blob/main/Figures/Supplementary/HMM_False_Neg_Carriage_Estimation.Rmd)
 ### [S3: Isolate sources](https://github.com/rebeccalperez/ST131_Transmission_Dynamics_SG/blob/main/Figures/Supplementary/ST131_Isolate_Sources_Plot.Rmd) 
 ### [S4: Antimicrobial susceptibility](https://github.com/rebeccalperez/ST131_Transmission_Dynamics_SG/blob/main/Figures/Supplementary/AMR_Phenotype_Heatmap.Rmd)
