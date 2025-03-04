@@ -4,7 +4,7 @@ This repository contains all codes used in the analysis and figure generation fo
 In this prospective cohort study, we adopted a longitudinal, One Health sampling approach to identify the transmission pathways of 
 E. coli ST131 as a gut colonising strain in households. We quantified the carriage duration and acquisition risks of E. coli ST131 
 via Markov models and mapped transmission events using both epidemiological and genomic data. Further, we conducted univariate and
-multivariate analysis of risk factors associated with *E. coli* ST131 carriage and with carrier status (persistent, intermittent). 
+multivariate analysis of risk factors associated with *E. coli* ST131 carriage and with carrier status and subgroup classification. 
 
 
 ## Main analysis: 
