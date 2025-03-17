@@ -691,7 +691,7 @@ ggplot(fam, aes(x = timepoint, y = Subject_ID, height = after_stat(count), fill 
   theme(panel.background = element_blank(), legend.title = element_blank(), axis.line.y = element_line(color = "white"), panel.grid.major.y = element_line(color = "black"),
         axis.line.x = element_line(color = "white"), axis.text.y = element_text(size = 25), axis.ticks.length = unit(.5, "cm"), axis.ticks.x = element_line(size = 2), axis.ticks.y = element_blank(), axis.text.x = element_text(size = 20)) +
   ggridges::geom_density_ridges(aes(), stat = "binline", scale = .9, draw_baseline = FALSE, show.legend = FALSE, color  = "white", binwidth = 1)  +
-  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,12), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
+  ylab("") + xlab("") + scale_x_continuous(breaks = seq(1,12, by = 1), limits = c(0,13), labels = NULL) + geom_vline(xintercept = seq(1.5, 11.5, by = 1), color = "white", linewidth = 1) + geom_hline(yintercept = fam$Subject_ID, color = "black", linewidth = 1.5) 
 
 ggsave("Fam18_Dens.png", plot = last_plot(), path = "/Users/lynnperez/Desktop/Density Plots/")
 
