@@ -328,3 +328,268 @@ pgrid <- ggplot(classplotting, aes(x = Species_Clade, y = Antibiotic_Class)) + g
 pgrid
 ```
 
+###Check just persistent carriers 
+```{r}
+setwd("/Users/FEB_ST131/Updated ST131 Code")
+load("Apr18_datafinal.Rdata")
+subjects_info <- MVdf[MVdf$PERS2FIN == 1,]
+
+info <- subset(subjects_info, select = c("subject_code", "PERS2FIN"))
+
+info <- info[!duplicated(info$subject_code),]
+
+phenot_with_id <- left_join(phenot_short, info, by = "subject_code")
+
+phenot_with_id <- phenot_with_id[!is.na(phenot_with_id$PERS2FIN),] 
+
+phenot_with_id <- phenot_with_id[phenot_with_id$wgs_st131.y ==1,]
+
+```
+
+###Run AMR analysis on just persistent carriers 
+
+```{r}
+AMR_classes <- as.data.frame(AMR_count_table[1:4,])
+
+for (i in 1:4){
+  AMR_classes$Aminoglycosides[i] <- as.numeric(sum(AMR_classes$`Amikacin Interpretation`[i], AMR_classes$`Gentamicin Interpretation`[i], AMR_classes$`Tobramycin Interpretation`[i])) 
+}
+
+AMR_classes$Monobactams <- as.numeric(AMR_classes$`Aztreonam Interpretation`)
+
+AMR_classes$Carbapenems <- NA
+for (i in 1:4){
+  AMR_classes$Carbapenems[i] <- as.numeric(sum(AMR_classes$`Doripenem Interpretation`[i], AMR_classes$`Ertapenem Interpretation`[i], AMR_classes$`Meropenem Interpretation`[i], AMR_classes$`Imipenem Interpretation`[i])) 
+}
+
+
+AMR_classes$'Second-Gen Cephalosporins' <- NA
+for (i in 1:4){
+  AMR_classes$'Second-Gen Cephalosporins'[i] <- as.numeric(sum(AMR_classes$`Cefuroxime Interpretation`[i], AMR_classes$`Cefoxitin Interpretation`[i]))
+  
+}
+
+AMR_classes$'Third-Gen Cephalosporins' <- NA
+for (i in 1:4){
+  AMR_classes$'Third-Gen Cephalosporins'[i] <- as.numeric(sum(AMR_classes$`Cefotaxime Interpretation`[i], AMR_classes$`Ceftazidime Interpretation`[i]))
+  
+}
+
+AMR_classes$'Fourth-Gen Cephalosporins' <- NA
+for (i in 1:4){
+  AMR_classes$'Fourth-Gen Cephalosporins'[i] <- as.numeric(sum(AMR_classes$`Cefepime Interpretation`[i]))
+  
+}
+
+
+AMR_classes$Fluoroquinolones <- NA
+
+
+for (i in 1:4){
+  AMR_classes$Fluoroquinolones[i] <- as.numeric(sum(AMR_classes$`Ciprofloxacin Interpretation`[i], AMR_classes$`Norfloxacin Interpretation`[i], AMR_classes$`Levofloxacin Interpretation`[i]))
+}
+
+AMR_classes$Tetracyclines <- NA
+
+for (i in 1:4){
+  
+  AMR_classes$Tetracyclines[i] <- as.numeric(sum(AMR_classes$`Tetracycline Interpretation`[i], AMR_classes$`Minocycline Interpretation`[i]))
+}
+
+
+AMR_classes$Penicillins <- NA
+
+for (i in 1:4){
+  
+  AMR_classes$Penicillins[i] <- as.numeric(sum(AMR_classes$`Piperacillin Interpretation`[i], AMR_classes$`Ampicillin Interpretation`[i]))
+  
+}
+
+
+
+AMR_classes$Glycylcyclines <- AMR_classes$`Tigecycline Interpretation`
+
+AMR_classes$Sulfonamides <- AMR_classes$`Trimeth/Sulfa Interpretation`
+
+
+for (i in 1:4){
+AMR_classes$'BL-BLI'[i] <- as.numeric(sum(AMR_classes$`Pip/Tazo Interpretation`[i], AMR_classes$`Amp/Sulbactam Interpretation`[i], AMR_classes$`Ceftazidime/K Clavulanate Interpretation`[i], AMR_classes$`Cefotaxime/K Clavulanate Interpretation`[i], AMR_classes$`Amox/K Clav Interpretation`[i]))
+}
+
+AMR_classshort <- AMR_classes[,c(35:46)]
+
+load("/Users/FEB_ST131/AMR_Phenotype_by_AB_Class.Rdata")
+
+pers_total <- as.numeric(sum(!is.na(phenot_with_id)))
+
+
+ABsperClass <- c(3, 1, 4, 5, 3, 2, 2, 1, 2, 1, 1, 5)  ## number of antibiotics grouped together per category 
+
+
+##calculate proportion of isolates with resistance to each class 
+for (i in 1:12){
+  
+  AMR_classshort[5,i] <- AMR_classshort[5, i] / (pers_total * ABsperClass[i]) 
+}
+
+```
+
+##check multidrug resistance 
+
+```{r}
+
+
+for(q in 1:ncol(phenot_with_id)){
+phenot_with_id[,q] <- ifelse(is.na(phenot_with_id[,q]), "no_info", phenot_with_id[,q])
+}
+
+category <- phenot_with_id 
+
+category$Amino <- NA
+
+for(i in 1:nrow(category)){
+category$Amino[i] <- if(phenot_short$`Amikacin Interpretation`[i] == "R" | phenot_short$`Amikacin Interpretation`[i] == "R*" | phenot_short$`Gentamicin Interpretation`[i] == "R" | phenot_short$`Gentamicin Interpretation`[i] == "R*" | phenot_short$`Tobramycin Interpretation`[i] == "R"| phenot_short$`Tobramycin Interpretation`[i] == "R*") {
+ category$Amino[i] <- 1 
+}else {
+  category$Amino[i] <- 0 
+}
+}
+
+
+##can leave Monobactams as is 
+
+category$Mono <- ifelse(category$`Aztreonam Interpretation` == "ESBL", 1, 0)
+
+###carbapenems 
+
+category$Carb <- NA
+
+for(i in 1:nrow(category)){
+
+if(phenot_with_id$`Doripenem Interpretation`[i] == "R" | phenot_with_id$`Doripenem Interpretation`[i] == "ESBL" | phenot_with_id$`Doripenem Interpretation`[i] == "R*" | phenot_with_id$`Ertapenem Interpretation`[i] == "R" | phenot_with_id$`Ertapenem Interpretation`[i] == "ESBL" | phenot_with_id$`Ertapenem Interpretation`[i] == "R*" | phenot_with_id$`Meropenem Interpretation`[i] == "R" | phenot_with_id$`Meropenem Interpretation`[i] == "R*" | phenot_with_id$`Meropenem Interpretation`[i]== "ESBL"| phenot_with_id$`Imipenem Interpretation`[i] == "R" | phenot_with_id$`Imipenem Interpretation`[i] == "R*" | phenot_with_id$`Imipenem Interpretation`[i] == "ESBL"){
+  category$Carb[i]<- 1
+}else{
+  category$Carb[i] <- 0
+}
+}
+
+
+category$Ceph2 <- NA
+
+##Cephalosporins ###
+
+for(i in 1:nrow(category)){
+  if(category$`Cefuroxime Interpretation`[i] == "R" | category$`Cefuroxime Interpretation`[i] == "R*" | category$`Cefuroxime Interpretation`[i] == "ESBL"| category$`Cefoxitin Interpretation`[i] == "R" | category$`Cefoxitin Interpretation`[i] == "R*" | category$`Cefoxitin Interpretation`[i] == "ESBL"){
+    category$Ceph2[i] <- 1
+  }else{
+    category$Ceph2[i] <- 0
+  }
+}
+
+category$Ceph3 <- NA
+
+for(i in 1:nrow(category)){
+  if(category$`Cefotaxime Interpretation`[i] == "R" | category$`Cefotaxime Interpretation`[i] == "R*" | category$`Cefotaxime Interpretation`[i] == "ESBL"|category$`Ceftazidime Interpretation`[i] == "R" | category$`Ceftazidime Interpretation`[i] == "R*" | category$`Ceftazidime Interpretation`[i] == "ESBL"){
+    category$Ceph3[i] <- 1
+  }else{
+    category$Ceph3[i] <- 0
+  }
+}
+
+category$Ceph4 <- NA
+
+for(i in 1:nrow(category)){
+if(category$`Cefepime Interpretation`[i] == "R" | category$`Cefepime Interpretation`[i]== "R*" | category$`Cefepime Interpretation`[i] == "ESBL"){
+  category$Ceph4[i] <- 1
+}else{
+  category$Ceph4[i] <- 0
+}
+}
+
+
+
+###FLUOROQUINOLONES 
+
+category$Fluoro <- NA
+
+for(i in 1:nrow(category)){
+  if(category$`Ciprofloxacin Interpretation`[i] == "R" | category$`Ciprofloxacin Interpretation`[i]== "R*" | category$`Ciprofloxacin Interpretation`[i] == "ESBL" | category$`Levofloxacin Interpretation`[i] == "R" | category$`Levofloxacin Interpretation`[i] == "R*" | category$`Levofloxacin Interpretation`[i] == "ESBL"){
+    category$Fluoro[i] <- 1
+  }else{
+    category$Fluoro[i] <- 0
+  }
+}
+
+
+####Tetracyclines 
+
+category$Tetra <- NA
+  
+for(i in 1:nrow(category)){
+  if(category$`Tetracycline Interpretation`[i] == "R" | category$`Tetracycline Interpretation`[i]== "R*" | category$`Tetracycline Interpretation`[i] == "ESBL" | category$`Minocycline Interpretation`[i] == "R" | category$`Minocycline Interpretation`[i] == "R*" | category$`Minocycline Interpretation`[i] == "ESBL"){
+    category$Tetra[i] <- 1
+  }else{
+    category$Tetra[i] <- 0 
+  }
+}
+
+
+###Penicillins 
+
+category$Penic <- NA
+
+for(i in 1:nrow(category)){
+  if(category$`Piperacillin Interpretation`[i] == "R" | category$`Piperacillin Interpretation`[i]== "R*" | category$`Piperacillin Interpretation`[i] == "ESBL" | category$`Ampicillin Interpretation`[i] == "R" | category$`Ampicillin Interpretation`[i]== "R*" | category$`Ampicillin Interpretation`[i] == "ESBL"){
+    category$Penic[i] <- 1
+  }else{
+     category$Penic[i] <- 0
+  }
+}
+
+category$Glyc <- NA
+for(i in 1:nrow(category)){
+ if(category$`Tigecycline Interpretation`[i] == "R"){
+   category$Glyc[i] <- 1
+ }else{
+   category$Glyc[i] <- 0
+ }
+}
+
+category$Sulf <- NA
+for(i in 1:nrow(category)){
+if(category$`Trimeth/Sulfa Interpretation`[i]=="R"){
+  category$Sulf[i]<-1
+}else{
+  category$Sulf[i] <- 0 
+}
+}
+
+category$'BL-BLI' <- NA
+
+for (i in 1:nrow(category)){
+if(category$`Pip/Tazo Interpretation`[i] == "R"|category$`Amp/Sulbactam Interpretation`[i] == "R"|category$`Ceftazidime/K Clavulanate Interpretation`[i] == "R"|category$`Cefotaxime/K Clavulanate Interpretation`[i]=="R"| category$`Amox/K Clav Interpretation`[i] == "R"){
+ category$'BL-BLI'[i] <- 1
+} else{
+category$'BL-BLI'[i] <- 0
+}
+}
+
+for(i in 1:nrow(category)){
+category$MDR[i] <- sum(category[i,59:67])
+}
+
+#table(category$MDR)
+
+#category$MoreThan2 <- ifelse(category$MDR > 2, 1, 0)
+
+
+#table(category$MoreThan2, category$clade_ST131typer)
+
+#Ecoli <- category[category$wgs_species == "ecoli",]
+#table(Ecoli$MoreThan2, Ecoli$wgs_st131.y)
+
+st131_iso_only <- category[category$wgs_st131 ==1,]
+
+
+```
+
